@@ -112,3 +112,35 @@ migrations. Fixed all three in
 Remaining advisor warning is **leaked-password protection (HaveIBeenPwned check), disabled**
 — an Auth dashboard toggle (Authentication → Policies → Password), not a SQL fix. Left for
 the user; not blocking.
+
+## 2026-08-30 — Onboarding / profile editor
+
+Built the §7.1 onboarding wizard at `/onboarding` (web only, matching the earlier auth-surface
+decision): name/designation/company → photo (skippable) → username with live availability →
+starter links (WhatsApp/Call/Email/Instagram/LinkedIn/Website as toggles) → done. Single
+client-side wizard component with local step state; nothing is persisted to Supabase until
+the final "Done" step, so abandoned attempts don't leave partial profile rows.
+
+Bio was in the `profiles` schema but is **not** part of the onboarding sequence per §7.1's
+exact step list — left for a later profile-edit page, not added here.
+
+New Supabase pieces (`supabase/migrations/20260830040524_onboarding_support.sql`):
+- `avatars` storage bucket, public read, owner-scoped write via the `avatars/<user_id>/...`
+  path convention checked against `(storage.foldername(name))[1]`.
+- `is_username_available(text)` RPC, `SECURITY DEFINER`, so the live-check bypasses RLS and
+  reports truthfully even against inactive profiles (RLS-scoped reads would otherwise show a
+  taken-but-inactive username as available, and the insert would then fail on the unique
+  constraint). Its advisor warning about being publicly callable is **expected and accepted**
+  — that's the point, it's called from the browser during onboarding, and it only ever
+  returns a boolean.
+
+`STARTER_LINKS` and `suggestUsername()` live in `packages/core/src/links.ts` (shared
+business logic per the repo rule in §5), not duplicated into the web app, so the mobile app's
+onboarding can reuse the same link definitions and value-formatting logic later.
+
+Verified live end-to-end: signed up a fresh account, confirmed it, ran the full wizard
+(auto-suggested username off the display name, live-checked it, added WhatsApp + Website),
+landed on `/dashboard` showing the new card, confirmed `/u/manikandan-g` rendered it publicly
+with correctly formatted link values (`https://wa.me/919876543210`, `https://tapit.in`), and
+confirmed `/onboarding` redirects away once a profile exists. Deleted the test account after
+— cascade-deleted `profiles` and `profile_links` cleanly.

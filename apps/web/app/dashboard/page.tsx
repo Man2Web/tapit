@@ -13,19 +13,36 @@ export default async function DashboardPage() {
   }
 
   const { data: profile } = await supabase
-    .from("user_profiles")
+    .from("profiles")
     .select("*")
-    .eq("id", user.id)
-    .single();
+    .eq("owner_id", user.id)
+    .eq("is_primary", true)
+    .maybeSingle();
+
+  if (!profile) {
+    redirect("/onboarding");
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
-      {profile?.avatar_url && (
+      {profile.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={profile.avatar_url} alt="" className="h-16 w-16 rounded-full" />
+        <img src={profile.avatar_url} alt="" className="h-24 w-24 rounded-full object-cover" />
+      ) : (
+        <div className="h-24 w-24 rounded-full bg-neutral-200" />
       )}
-      <h1 className="text-xl font-semibold">{profile?.full_name ?? user.email}</h1>
-      <p className="text-sm text-neutral-600">{profile?.email ?? user.email}</p>
+      <h1 className="text-xl font-semibold">{profile.display_name}</h1>
+      {profile.designation && <p className="text-sm text-neutral-600">{profile.designation}</p>}
+      {profile.company && <p className="text-sm text-neutral-600">{profile.company}</p>}
+
+      <a
+        href={`/u/${profile.username}`}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm underline"
+      >
+        tapit.in/u/{profile.username}
+      </a>
 
       <form action={signOut}>
         <button className="mt-4 rounded-lg border border-neutral-200 px-4 py-2 text-sm">
