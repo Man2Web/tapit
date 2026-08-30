@@ -21,6 +21,9 @@ supabase/.temp/
 .DS_Store
 Thumbs.db
 
+# local Claude Code harness state
+/.claude/
+
 # EAS
 *.p12
 *.mobileprovision

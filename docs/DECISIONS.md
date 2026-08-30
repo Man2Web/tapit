@@ -144,3 +144,35 @@ landed on `/dashboard` showing the new card, confirmed `/u/manikandan-g` rendere
 with correctly formatted link values (`https://wa.me/919876543210`, `https://tapit.in`), and
 confirmed `/onboarding` redirects away once a profile exists. Deleted the test account after
 — cascade-deleted `profiles` and `profile_links` cleanly.
+
+## 2026-08-30 — Save-to-contacts (vCard) + QR code
+
+Picked as "the best option" of the three offered (edit-profile, vCard+QR, analytics) because
+it's the actual core promise in PRODUCT.md §1 — "save the contact in one tap" via QR — and
+the public page didn't deliver on it yet even though it rendered.
+
+Built per §7.2:
+- `GET /api/vcard/[username]` — vCard 3.0, `Content-Type: text/vcard`, `Content-Disposition:
+  attachment`. Photo embedded as base64 (`PHOTO;ENCODING=b`) when the profile has an
+  avatar, fetched and re-encoded server-side; a fetch failure there is swallowed, not fatal
+  — a vCard without a photo is still useful. Long lines (the PHOTO line) are RFC 2425-folded.
+- `GET /api/qr/[username]` — PNG via the `qrcode` package (per §4.4's "QR generation: qrcode
+  on server"), encoding the profile's public URL, cached for an hour.
+- Public profile page: QR image display, sticky bottom bar (`Save Contact` primary,
+  `Share` secondary using the Web Share API with clipboard-copy fallback).
+
+`buildVCard()` is pure business logic (profile + links + optional photo → vCard text) and
+lives in `packages/core`, not the route handler — the route only does IO (Supabase fetch,
+avatar fetch, base64 encode). Mirrors the `packages/core` intent in §5: mobile's native
+share sheet can reuse the same builder later instead of re-deriving the format.
+
+**Not built**: the "Exchange Details" secondary lead-capture button §7.2 also describes —
+that needs the `leads` table + a form UI, which is Phase 2 scope no one has asked for yet.
+Used `Share` in that slot instead, which is in-scope on its own (§3 Phase 1: "QR code
+generation + share sheet").
+
+Verified live: fetched `/api/vcard/manikandan` and `/api/qr/manikandan` directly against the
+seeded demo profile — vCard resolved `mailto:`/website correctly into `EMAIL`/`URL` lines and
+omitted `TEL`/`PHOTO` cleanly (the seed profile has no phone link or avatar); QR returned a
+valid `image/png`. Confirmed both 404 for an unknown username, and the public page renders
+the QR image and sticky bar correctly.

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { resolveTheme } from "@tapit/core";
 import { createPublicClient } from "@/lib/supabase/server";
+import { ShareButton } from "./share-button";
 
 export const revalidate = 60;
 
@@ -33,7 +34,7 @@ export default async function PublicProfilePage({ params }: Props) {
   const theme = resolveTheme(profile.theme);
 
   return (
-    <main style={{ "--brand-color": theme.primary } as React.CSSProperties} className="mx-auto flex min-h-dvh max-w-md flex-col items-center gap-6 px-6 py-12">
+    <main style={{ "--brand-color": theme.primary } as React.CSSProperties} className="mx-auto flex min-h-dvh max-w-md flex-col items-center gap-6 px-6 pb-28 pt-12">
       {profile.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -69,6 +70,31 @@ export default async function PublicProfilePage({ params }: Props) {
           ))}
         </ul>
       )}
+
+      <div className="flex flex-col items-center gap-2 pt-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/api/qr/${profile.username}`}
+          alt="QR code for this profile"
+          width={160}
+          height={160}
+          className="h-40 w-40"
+        />
+        <p className="text-xs text-neutral-400">Scan to open this card</p>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 border-t border-neutral-200 bg-white/95 px-6 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-md gap-3">
+          <a
+            href={`/api/vcard/${profile.username}`}
+            className="flex-1 rounded-lg px-4 py-3 text-center font-medium text-white"
+            style={{ backgroundColor: theme.primary }}
+          >
+            Save Contact
+          </a>
+          <ShareButton username={profile.username} displayName={profile.display_name} />
+        </div>
+      </div>
     </main>
   );
 }
