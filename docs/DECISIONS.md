@@ -267,3 +267,32 @@ WhatsApp link), landed on the Card tab showing the real profile, confirmed the S
 sign-out redirects to `/login`. Confirmed in Postgres that `profile_links.value` was formatted
 identically to web's output (`https://wa.me/919876500000`) — same shared `packages/core`
 logic, not reimplemented. Deleted the test account after.
+
+## 2026-08-30 — Web home page placeholder; `expo-env.d.ts` fixed durably
+
+User wanted to actually see both apps running. Two small things came out of that:
+
+**`apps/web/app/page.tsx`** was still `create-next-app`'s default boilerplate (Next.js logo,
+"To get started, edit page.tsx") — never touched since scaffolding, because the marketing
+site isn't in scope yet. Swapped for a minimal branded placeholder (name, tagline, Get
+started/Sign in links) rather than leaving the framework default live. Still not the real
+marketing site (§13.3's "warm, premium, photography-led" direction) — just not obviously
+unfinished.
+
+**`expo-env.d.ts` fix from earlier turned out not to be durable.** Restarting the mobile dev
+server reproduced the exact same failure: NativeWind's tsconfig rewrite (runs on every
+`expo start`, not just the first) both deletes the file and drops its `tsconfig#include`
+entry, every time — this is a per-session recurring behavior, not a one-off fixed already.
+Moved the fix into `nativewind-env.d.ts` instead: added `/// <reference types="expo/types" />`
+there alongside the existing `nativewind/types` reference, since NativeWind's rewrite always
+keeps that specific file in `include` (just not `expo-env.d.ts`). This survives the rewrite
+regardless of what NativeWind does to the rest of the tsconfig, so it shouldn't need
+re-fixing on every future `expo start`.
+
+Also caught the same `react-hooks/set-state-in-effect` lint pattern now firing in web's
+`app/onboarding/wizard.tsx` (identical username-suggestion/availability-check code to
+mobile's, written earlier in the session before the rule started enforcing — likely
+`eslint-plugin-react-hooks` got bumped transitively by one of the many `pnpm install` runs
+since). Applied the same fix as mobile's onboarding screen: render-time state adjustment for
+the derived suggestion, scoped `eslint-disable` for the debounced-check effect's loading
+state.

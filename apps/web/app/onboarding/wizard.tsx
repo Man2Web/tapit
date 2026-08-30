@@ -35,12 +35,18 @@ export function OnboardingWizard({ userId }: { userId: string }) {
 
   const checkSeq = useRef(0);
 
-  useEffect(() => {
-    if (!usernameTouched && displayName) {
-      setUsername(suggestUsername(displayName));
-    }
-  }, [displayName, usernameTouched]);
+  // Adjusted during render (not an effect) per React's guidance for "derive state from a
+  // prop, but allow local override": https://react.dev/learn/you-might-not-need-an-effect
+  const [lastSuggestedFor, setLastSuggestedFor] = useState("");
+  if (!usernameTouched && displayName !== lastSuggestedFor) {
+    setLastSuggestedFor(displayName);
+    setUsername(suggestUsername(displayName));
+  }
 
+  // The debounced availability check below sets a "checking"/"idle" loading status
+  // synchronously before its async call — React's own endorsed "fetch in an effect"
+  // pattern (https://react.dev/learn/you-might-not-need-an-effect#fetching-data).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!username) {
       setUsernameStatus("idle");
@@ -61,6 +67,7 @@ export function OnboardingWizard({ userId }: { userId: string }) {
     }, 400);
     return () => clearTimeout(timeout);
   }, [username]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
