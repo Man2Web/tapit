@@ -403,3 +403,28 @@ phone link), edited the name and phone number, saved, confirmed via direct Postg
 both changes persisted with the phone number correctly re-formatted, and confirmed the Card
 tab (via its `useFocusEffect` refetch) showed the updated name immediately on return with no
 error toast.
+
+## 2026-08-30 — Mobile Share + QR on the Card tab
+
+Added the actual "hand someone your card" interaction, which was missing entirely on mobile:
+a QR code (`react-native-qrcode-svg` + `react-native-svg`, per PRODUCT.md §4.4's explicit
+tech-stack decision — client-side generation, not a round-trip to web's `/api/qr`) and a
+Share button (React Native's built-in `Share.share()`, not `expo-sharing` — that module is
+for sharing *files*, this is a plain URL/text share, which is what `Share` is for and needs
+no extra dependency). Both encode/share `https://tapit.in/u/<username>` — same placeholder
+domain already used elsewhere in the app pending a real one.
+
+**Verification hit a real wall this time, worth being honest about.** Confirmed clean:
+typecheck, lint, and a full `expo export --platform web` (proves `react-native-svg`'s native
+module and `react-native-qrcode-svg`'s JS both resolve and bundle without error). **Could not
+verify live rendering** — ran into Supabase's shared free-tier email rate limit from the
+volume of test accounts created across this session's earlier features (signup and
+password-reset both consume the same quota), which blocked creating a fresh confirmed test
+session. Tried the direct-SQL-with-bcrypt shortcut used successfully for *unauthenticated*
+seed data earlier in this project — confirmed via `POST .../auth/v1/token?grant_type=password`
+returning `400` that GoTrue genuinely rejects a `pgcrypto`-hashed password even though the
+hash is well-formed bcrypt (`$2a$...`) and verified correct by inspection; whatever GoTrue
+checks beyond a bcrypt compare, direct SQL insertion doesn't satisfy it. Static verification
+(typecheck/lint/bundle) all passed and the code mirrors the exact pattern already
+live-verified on web's `/api/qr` and `/u/[username]` share button — worth a live pass once the
+rate limit clears or on a real device, not claiming full coverage here.

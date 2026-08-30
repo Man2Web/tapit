@@ -1,13 +1,19 @@
 import { useCallback, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { Image, Text, View } from "react-native";
+import { Image, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import QRCode from "react-native-qrcode-svg";
 import type { Database } from "@tapit/types";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+
+// tapit.in is still a placeholder domain (see docs/DECISIONS.md) — swap once real and deployed.
+function cardUrl(username: string) {
+  return `https://tapit.in/u/${username}`;
+}
 
 export default function CardScreen() {
   const { session } = useAuth();
@@ -30,6 +36,13 @@ export default function CardScreen() {
 
   if (!profile) return null;
 
+  const url = cardUrl(profile.username);
+
+  async function handleShare() {
+    // `message` (not `url`) carries the link on Android — RN's Share API ignores `url` there.
+    await Share.share({ message: url, url });
+  }
+
   return (
     <SafeAreaView className="flex-1 items-center gap-3 bg-white px-6 pt-12">
       {profile.avatar_url ? (
@@ -44,9 +57,19 @@ export default function CardScreen() {
         tapit.in/u/{profile.username}
       </Text>
 
-      <Button variant="secondary" onPress={() => router.push("/edit-profile")} className="mt-2">
-        Edit Profile
-      </Button>
+      <View className="mt-4 items-center gap-2">
+        <QRCode value={url} size={160} />
+        <Text className="text-xs text-neutral-400">Scan to open this card</Text>
+      </View>
+
+      <View className="mt-2 w-full flex-row gap-3">
+        <Button onPress={handleShare} className="flex-1">
+          Share
+        </Button>
+        <Button variant="secondary" onPress={() => router.push("/edit-profile")} className="flex-1">
+          Edit Profile
+        </Button>
+      </View>
     </SafeAreaView>
   );
 }
