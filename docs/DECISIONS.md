@@ -93,3 +93,22 @@ Verified live end-to-end against the real `tapit` Supabase project (sign up → 
 server-side → sign in → dashboard renders the account → sign out → redirected to `/login`),
 then deleted the test `auth.users` row — `user_profiles` cascade-deleted with it, confirming
 the FK is wired correctly.
+
+## 2026-08-30 — Supabase advisor cleanup
+
+User asked "is the supabase setup?" — while checking, the advisor turned up 14 RLS perf
+warnings, 2 redundant-policy warnings, and a security warning, all introduced by our own
+migrations. Fixed all three in
+`supabase/migrations/20260830035632_rls_perf_and_hardening.sql`:
+- Every `auth.uid()` in an RLS policy wrapped as `(select auth.uid())` — evaluated once per
+  query instead of once per row (`auth_rls_initplan`).
+- `profiles` and `profile_links` each had two overlapping SELECT policies (owner + public);
+  merged into one per table (`multiple_permissive_policies`).
+- `handle_new_user()`'s `EXECUTE` revoked from `public`/`anon`/`authenticated` — it's a
+  `SECURITY DEFINER` function meant only for the `auth.users` trigger, not a callable RPC.
+  Verified the trigger still fires after the revoke (Postgres doesn't privilege-check trigger
+  invocation, only direct calls) by inserting and deleting a throwaway `auth.users` row.
+
+Remaining advisor warning is **leaked-password protection (HaveIBeenPwned check), disabled**
+— an Auth dashboard toggle (Authentication → Policies → Password), not a SQL fix. Left for
+the user; not blocking.
