@@ -359,3 +359,47 @@ mobile scheme was explicitly configured in the Supabase dashboard. Confirmed bot
 fails the exchange). **Not verified**: the actual tap-email-link-and-land-in-app path — that
 needs a real device with the app installed and a real inbox. Flagging this as unverified
 rather than claiming full coverage.
+
+## 2026-08-30 — Mobile edit profile
+
+Closed the other flagged gap: onboarding could create a card but nothing could change it
+afterward. New root-level `/edit-profile` (own manual session guard, same reasoning as
+`/reset-password` — not under `(auth)`/`(tabs)`), reachable via an "Edit Profile" button on
+the Card tab. Single scrollable form rather than onboarding's step wizard — editing is a
+returning-user action, not a first-run flow, so the friction-reduction a wizard buys doesn't
+apply the same way.
+
+**Made `formatValue` idempotent** in `packages/core/src/links.ts` before building this —
+editing re-runs `formatValue` on save (including for links the user didn't touch), so
+re-applying it to an already-formatted value must be a no-op. Checked all six: phone/whatsapp
+were already idempotent by construction (`digitsOnly` strips any accidental prefix text back
+out); `website`/`linkedin`/`instagram` are idempotent via `normalizeUrl`'s "only prepend
+`https://` if missing" check. Only `email` broke (`mailto:` got doubled) — fixed by stripping
+any existing `mailto:` prefix before re-adding it. This means the edit screen can safely show
+existing links' *raw stored value* (e.g. `tel:+91...`) directly in the input rather than
+needing a separate reverse-parser — a little less pretty than a cleaned-up display value, but
+correct with materially less code, and fixable later without a data migration if it needs
+polishing.
+
+Link reconciliation on save is explicit per `STARTER_LINKS` entry, not a blind
+delete-and-reinsert: update if there's an existing row and it's still enabled, delete if it
+existed and got turned off, insert if it's newly enabled. Existing `profile_links.id`s are
+preserved when just editing a value.
+
+Username re-validates only when changed — reusing the onboarding availability-check effect
+as-is against a profile's *own current* username would always report "taken" (`is_username_available`
+correctly sees the row exists), so the check is skipped entirely when `username === originalUsername`.
+
+**Found and fixed a real bug via live testing, not just typecheck**: `router.back()` after
+saving/cancelling threw `"The action 'GO_BACK' was not handled"` — the screen was reached by
+direct URL navigation during testing, which has no back-stack entry (real users always arrive
+via the in-app "Edit Profile" push, where `back()` would have worked). Switched to
+`router.replace("/")` regardless, since it's correct no matter how the screen was entered and
+removes the dependency on navigation history entirely.
+
+Verified live end-to-end: seeded a profile with one existing link, loaded `/edit-profile` and
+confirmed it round-tripped correctly (including the raw-stored-value display for the existing
+phone link), edited the name and phone number, saved, confirmed via direct Postgres query that
+both changes persisted with the phone number correctly re-formatted, and confirmed the Card
+tab (via its `useFocusEffect` refetch) showed the updated name immediately on return with no
+error toast.

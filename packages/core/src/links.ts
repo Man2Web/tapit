@@ -46,7 +46,9 @@ export const STARTER_LINKS: StarterLinkDef[] = [
     label: "Email",
     placeholder: "you@example.com",
     inputType: "email",
-    formatValue: (raw) => `mailto:${raw.trim()}`,
+    // Idempotent: re-applying to an already-formatted value (e.g. when re-saving an
+    // unedited link on an edit screen) must not double the prefix.
+    formatValue: (raw) => `mailto:${raw.trim().replace(/^mailto:/i, "")}`,
   },
   {
     key: "instagram",
