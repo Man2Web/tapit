@@ -45,3 +45,29 @@ that NFC/wallet passes/IAP never run in Expo Go. Version resolved via `expo inst
 machine has no Xcode/Android SDK. Metro-bundling the full JS graph (expo-router,
 expo-dev-client, and all deps resolve and bundle cleanly) is the available proxy for "the
 app builds" until an EAS Build is run. Revisit when a real device/simulator build is needed.
+
+## 2026-08-30 — Google auth (web only, no phone OTP yet)
+
+**User explicitly asked to skip Phone OTP and do Google auth only, for `apps/web` only.**
+§7.1's onboarding sequence assumes phone OTP first; that's deferred, not dropped — revisit
+when phone OTP is actually built. Mobile Google auth (a different flow — expo-auth-session +
+deep linking, not cookies) is not built yet either.
+
+Built: `/login` (Google button via `supabase.auth.signInWithOAuth`), `/auth/callback`
+(exchanges the OAuth code for a session), `/dashboard` (minimal authed page proving the
+session works, with sign-out), `middleware.ts` (refreshes the session cookie per the
+standard `@supabase/ssr` pattern), and a `handle_new_user` trigger on `auth.users` so any
+new sign-in — Google now, phone OTP later — gets a `user_profiles` row automatically
+(`supabase/migrations/20260830033618_auto_provision_user_profile.sql`).
+
+**`@supabase/ssr` pinned to `^0.12.5`, not the `^0.5.2` first installed.** 0.5.2's type
+declarations deep-import from `@supabase/supabase-js/dist/module/lib/types`, a path that
+doesn't exist in the `@supabase/supabase-js@2.112.4` that `^2.45.0` resolves to today —
+every `.from(...)` call on a client built via `createServerClient` typed as `never`. If a
+future `@supabase/supabase-js` bump reintroduces type errors here, suspect the same
+version-skew issue first.
+
+**Enabling the Google provider itself (Client ID/Secret in the Supabase dashboard, and the
+OAuth consent screen + client in Google Cloud Console) is a manual step the user does** —
+no MCP tool exposes Supabase Auth provider config, and creating a Google Cloud OAuth client
+needs the user's own Google account.
