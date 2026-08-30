@@ -296,3 +296,39 @@ mobile's, written earlier in the session before the rule started enforcing — l
 since). Applied the same fix as mobile's onboarding screen: render-time state adjustment for
 the derived suggestion, scoped `eslint-disable` for the debounced-check effect's loading
 state.
+
+## 2026-08-30 — Web scope narrowed: receivers + admin only, no end-user auth
+
+User clarified the split that had been drifting since Phase 1: **mobile is the only app
+end users (card owners) get.** Web is receiver-facing (`/u/[username]`, the vCard/QR
+endpoints) plus, going forward, an internal admin dashboard for Man2Web. This matches
+PRODUCT.md §1/§4.2's original intent ("mobile is the primary editor, web is view +
+dashboard") more literally than the web-first bootstrapping sequence earlier in this session
+had ended up building.
+
+Removed from `apps/web` entirely, now that mobile covers the same ground:
+`/login`, `/signup`, `/forgot-password`, `/auth/reset-password`, `/onboarding`, `/dashboard`,
+and `middleware.ts` (existed only to refresh the session cookie those pages used — nothing
+sets a web session anymore, so it was dead weight, not simplified logic). `/` simplified to a
+static name + tagline, since its Get started/Sign in links pointed at deleted pages.
+
+**Kept, deliberately:**
+- `/u/[username]`, `/api/vcard/[username]`, `/api/qr/[username]` — the whole reason web
+  exists in this product; a receiver never installs anything (§1).
+- `/auth/callback` — simplified rather than deleted. Supabase's signup-confirmation and
+  password-reset emails still need *some* web landing to complete the code exchange (mobile
+  has no deep-link scheme configured for this yet), even though the account itself now lives
+  entirely in the mobile app. Redirects home unconditionally instead of into the deleted
+  `/dashboard`/`/login`.
+- `lib/supabase/session.ts` and `lib/supabase/browser.ts` — the cookie-aware and browser
+  Supabase clients. Unused by anything right now, but kept rather than deleted-then-recreated,
+  since the admin dashboard (next task) will need Supabase auth on web again, just gated to
+  Man2Web team accounts instead of open signup.
+
+**Known gap this creates**: mobile has no password-reset screens yet. If mobile becomes the
+only account entry point, that's a real gap to close, not just a nice-to-have — flagging for
+whenever mobile auth work resumes.
+
+Verified: full `apps/web` typecheck, lint, and production build clean after the deletions
+(build output confirms no more `ƒ Middleware` line, and the route list is exactly the
+receiver + system routes above — nothing accidentally left reachable).

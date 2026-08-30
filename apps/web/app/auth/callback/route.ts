@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/session";
 
-// Exchanges the OAuth `code` Google/Supabase append to the redirect for a session,
-// then sends the user on to their dashboard.
+// Landing spot for Supabase email links (signup confirmation, password reset) — the
+// account itself is created and managed in the mobile app, not here. This just completes
+// the code exchange so the link isn't a dead end, then sends the visitor home.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
-    }
+    await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+  return NextResponse.redirect(origin);
 }
