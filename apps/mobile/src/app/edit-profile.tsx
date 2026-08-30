@@ -262,11 +262,19 @@ export default function EditProfileScreen() {
         </View>
 
         <Input placeholder="Full name" value={displayName} onChangeText={setDisplayName} />
-        <Input placeholder="Designation" value={designation} onChangeText={setDesignation} />
-        <Input placeholder="Company" value={company} onChangeText={setCompany} />
-        <Input placeholder="Bio" value={bio} onChangeText={setBio} multiline />
+        <Input placeholder="Job Title" value={designation} onChangeText={setDesignation} />
+        <Input placeholder="Organization Name" value={company} onChangeText={setCompany} />
+        <Input
+          placeholder="Bio — a line or two about you"
+          value={bio}
+          onChangeText={setBio}
+          multiline
+          numberOfLines={3}
+          className="min-h-20"
+        />
 
         <View className="gap-1.5">
+          <Text className="text-sm font-medium text-neutral-700">Profile link</Text>
           <View className="flex-row items-center rounded-md border border-neutral-200 px-4 py-3">
             <Text className="text-neutral-400">tapit.in/u/</Text>
             <Input

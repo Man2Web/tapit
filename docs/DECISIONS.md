@@ -466,3 +466,29 @@ username check, and all six link-row icons rendering crisp and correctly aligned
 confirm). Could not verify the Card/Settings tabs' icons live in this session — still blocked
 by the email rate limit noted above — but they use the exact same `Ionicons`/`Button icon=`
 pattern just confirmed working elsewhere, and typecheck/lint/bundle all pass.
+
+## 2026-08-30 — Profile field completeness: Bio was missing from onboarding entirely
+
+User asked for Full Name, Organization Name, Job Title, Profile link, and Bio (textarea) on
+"the profile page" (onboarding and/or editing). Checking against what actually existed: **Bio
+was never in onboarding at all** — the field exists in the `profiles` schema and in
+edit-profile, but onboarding's step 1 only collected name/designation/company, and its
+`handleFinish` insert didn't even pass a `bio` key. So a new card's bio was always `null`
+until someone visited edit-profile specifically to set one — a real gap, not just a UI
+polish request.
+
+Fixed in both screens:
+- Onboarding step 1 gained a `bio` state + multiline `Input` (3 lines, `min-h-20`), and
+  `handleFinish`'s `profiles.insert()` now includes `bio: bio || null`.
+- Relabeled placeholders to the user's exact terminology in both onboarding and edit-profile:
+  "Designation" → "Job Title", "Company" → "Organization Name". The underlying DB
+  columns/schema stay `designation`/`company` — this is a label-only change, not a migration;
+  renaming the columns for a naming preference would be unnecessary churn.
+- Added an explicit "Profile link" caption above the username field in both screens (step 3
+  of onboarding, and edit-profile) — previously the `tapit.in/u/` prefix was the only signal
+  of what that field was for.
+
+Verified live via the Expo web preview (no session needed — same as the earlier icon-system
+check): step 1 shows all four fields including the bio textarea rendering as an actual
+multi-line box, and step 3 shows the new "Profile link" label above a working live-checked
+username field.

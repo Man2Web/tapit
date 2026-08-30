@@ -20,6 +20,7 @@ export default function OnboardingScreen() {
   const [displayName, setDisplayName] = useState("");
   const [designation, setDesignation] = useState("");
   const [company, setCompany] = useState("");
+  const [bio, setBio] = useState("");
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
@@ -129,6 +130,7 @@ export default function OnboardingScreen() {
         display_name: displayName,
         designation: designation || null,
         company: company || null,
+        bio: bio || null,
         avatar_url: avatarUrl,
       })
       .select()
@@ -178,11 +180,19 @@ export default function OnboardingScreen() {
             <Text className="text-center text-xl font-semibold">Tell us about you</Text>
             <Input placeholder="Full name" value={displayName} onChangeText={setDisplayName} autoFocus />
             <Input
-              placeholder="Designation (e.g. Realtor)"
+              placeholder="Job Title (e.g. Realtor)"
               value={designation}
               onChangeText={setDesignation}
             />
-            <Input placeholder="Company" value={company} onChangeText={setCompany} />
+            <Input placeholder="Organization Name" value={company} onChangeText={setCompany} />
+            <Input
+              placeholder="Bio — a line or two about you"
+              value={bio}
+              onChangeText={setBio}
+              multiline
+              numberOfLines={3}
+              className="min-h-20"
+            />
             <Button
               icon="chevron-forward"
               iconPosition="right"
@@ -246,6 +256,7 @@ export default function OnboardingScreen() {
         {step === 3 && (
           <View className="gap-3">
             <Text className="text-center text-xl font-semibold">Pick your link</Text>
+            <Text className="text-sm font-medium text-neutral-700">Profile link</Text>
             <View className="flex-row items-center rounded-md border border-neutral-200 px-4 py-3">
               <Text className="text-neutral-400">tapit.in/u/</Text>
               <Input
