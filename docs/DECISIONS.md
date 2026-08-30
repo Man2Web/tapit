@@ -428,3 +428,41 @@ checks beyond a bcrypt compare, direct SQL insertion doesn't satisfy it. Static 
 (typecheck/lint/bundle) all passed and the code mirrors the exact pattern already
 live-verified on web's `/api/qr` and `/u/[username]` share button — worth a live pass once the
 rate limit clears or on a real device, not claiming full coverage here.
+
+## 2026-08-30 — Mobile icon system
+
+User asked to enhance the mobile UI with icons. Went with `@expo/vector-icons` (Ionicons)
+rather than adding a second icon library — it's bundled with Expo (no extra native linking),
+and critically, Ionicons alone covers everything needed including brand glyphs
+(`logo-whatsapp`, `logo-instagram`, `logo-linkedin`) that a purely generic set like Lucide
+doesn't have. One icon family end to end, not a generic set plus a brand set.
+
+**Icon names live in `packages/core`, not the mobile app** — added an `icon: string` field to
+each `StarterLinkDef` (plain string, not a component import) so the package stays UI-
+framework-agnostic; mobile resolves it against Ionicons, and if web ever gets its own icon
+treatment later it resolves the same string against its own set rather than duplicating the
+per-link icon mapping.
+
+**Extended the house `Button` component with `icon`/`iconPosition` props** rather than hand-
+wrapping icon+text in every screen. Every icon+label button in the app (wizard's Back/
+Continue/Done, bottom-sheet photo options, Card tab's Share/Edit, edit-profile's Cancel/Save)
+now goes through one prop instead of a repeated `<View><Icon/><Text/></View>` pattern — the
+"improve the base component once" version of the house-pattern rule in §13.1a, not a one-off.
+
+Also: fixed the Card tab's blank-white-screen loading gap (was `if (!profile) return null`,
+conflating "still loading" with "no profile" — now an explicit `loading` state with a spinner),
+added a person-placeholder icon for missing avatars, and swapped edit-profile's plain
+"Loading…" text for the same spinner pattern.
+
+**Deliberately did not add a confirm dialog to Settings' sign-out**, despite it being a
+plausible "polish" addition — `Alert.alert` on `react-native-web` can bridge to an actual
+browser `window.confirm()`, which per this session's own browser-automation guidance freezes
+further automated interaction. Sign-out is also easily reversible (just sign back in), so the
+UX case for a confirm step is weak enough that avoiding the testing risk won out.
+
+Verified live via the Expo web preview: onboarding steps 1-4 all render correctly with icons
+in place (camera placeholder, chevrons, the live green checkmark on a real "Available"
+username check, and all six link-row icons rendering crisp and correctly aligned, zoomed in to
+confirm). Could not verify the Card/Settings tabs' icons live in this session — still blocked
+by the email rate limit noted above — but they use the exact same `Ionicons`/`Button icon=`
+pattern just confirmed working elsewhere, and typecheck/lint/bundle all pass.

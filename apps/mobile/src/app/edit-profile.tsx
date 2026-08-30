@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { Redirect, router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { Image, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Image, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { STARTER_LINKS, type StarterLinkDef } from "@tapit/core";
 import type { Database } from "@tapit/types";
@@ -227,7 +228,7 @@ export default function EditProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white">
-        <Text className="text-neutral-600">Loading…</Text>
+        <ActivityIndicator color="#4f46e5" />
       </SafeAreaView>
     );
   }
@@ -253,7 +254,7 @@ export default function EditProfileScreen() {
               <Image source={{ uri: newAvatarUri ?? avatarUrl! }} className="h-24 w-24 rounded-full" />
             ) : (
               <View className="h-24 w-24 items-center justify-center rounded-full bg-neutral-100">
-                <Text className="text-sm text-neutral-400">Upload</Text>
+                <Ionicons name="camera-outline" size={28} color="#9ca3af" />
               </View>
             )}
           </Pressable>
@@ -275,14 +276,24 @@ export default function EditProfileScreen() {
               className="flex-1 border-0 p-0"
             />
           </View>
-          {username !== originalUsername && (
-            <Text className="text-sm">
-              {usernameStatus === "checking" && <Text className="text-neutral-600">Checking…</Text>}
-              {usernameStatus === "available" && <Text className="text-success">Available</Text>}
-              {(usernameStatus === "taken" || usernameStatus === "invalid") && (
-                <Text className="text-danger">{usernameReason}</Text>
+          {username !== originalUsername && usernameStatus !== "idle" && (
+            <View className="flex-row items-center gap-1.5">
+              {usernameStatus === "checking" && (
+                <Text className="text-sm text-neutral-600">Checking…</Text>
               )}
-            </Text>
+              {usernameStatus === "available" && (
+                <>
+                  <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                  <Text className="text-sm text-success">Available</Text>
+                </>
+              )}
+              {(usernameStatus === "taken" || usernameStatus === "invalid") && (
+                <>
+                  <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                  <Text className="text-sm text-danger">{usernameReason}</Text>
+                </>
+              )}
+            </View>
           )}
         </View>
 
@@ -290,7 +301,14 @@ export default function EditProfileScreen() {
         {STARTER_LINKS.map((link: StarterLinkDef) => (
           <View key={link.key} className="rounded-md border border-neutral-200 p-3">
             <View className="flex-row items-center justify-between">
-              <Text className="font-medium">{link.label}</Text>
+              <View className="flex-row items-center gap-2">
+                <Ionicons
+                  name={link.icon as ComponentProps<typeof Ionicons>["name"]}
+                  size={20}
+                  color="#4b5563"
+                />
+                <Text className="font-medium">{link.label}</Text>
+              </View>
               <Switch
                 value={!!enabledLinks[link.key]}
                 onValueChange={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
@@ -308,13 +326,25 @@ export default function EditProfileScreen() {
           </View>
         ))}
 
-        {submitError && <Text className="text-sm text-danger">{submitError}</Text>}
+        {submitError && (
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="alert-circle" size={16} color="#dc2626" />
+            <Text className="text-sm text-danger">{submitError}</Text>
+          </View>
+        )}
 
         <View className="flex-row gap-3">
-          <Button variant="secondary" onPress={() => router.replace("/")} className="flex-1">
+          <Button
+            variant="secondary"
+            icon="close"
+            onPress={() => router.replace("/")}
+            className="flex-1"
+          >
             Cancel
           </Button>
           <Button
+            icon="checkmark"
+            iconPosition="right"
             onPress={handleSave}
             loading={submitting}
             disabled={!displayName.trim() || (username !== originalUsername && usernameStatus !== "available")}
@@ -326,10 +356,14 @@ export default function EditProfileScreen() {
 
         <BottomSheet visible={photoSheetOpen} onClose={() => setPhotoSheetOpen(false)}>
           <View className="gap-2">
-            <Button variant="secondary" onPress={() => pickImage("camera")}>
+            <Button variant="secondary" icon="camera-outline" onPress={() => pickImage("camera")}>
               Take Photo
             </Button>
-            <Button variant="secondary" onPress={() => pickImage("library")}>
+            <Button
+              variant="secondary"
+              icon="images-outline"
+              onPress={() => pickImage("library")}
+            >
               Choose from Library
             </Button>
           </View>

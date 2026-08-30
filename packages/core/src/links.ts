@@ -9,6 +9,9 @@ export type StarterLinkDef = {
   label: string;
   placeholder: string;
   inputType: "tel" | "email" | "url" | "text";
+  /** Ionicons glyph name. A plain string, not a component — this package stays UI-framework-
+   *  agnostic; each platform's UI layer resolves it against its own icon set. */
+  icon: string;
   /** Turns what the user typed into the value stored in profile_links.value. */
   formatValue: (raw: string) => string;
 };
@@ -30,6 +33,7 @@ export const STARTER_LINKS: StarterLinkDef[] = [
     label: "WhatsApp",
     placeholder: "+91 98765 43210",
     inputType: "tel",
+    icon: "logo-whatsapp",
     formatValue: (raw) => `https://wa.me/${digitsOnly(raw).replace(/^\+/, "")}`,
   },
   {
@@ -38,6 +42,7 @@ export const STARTER_LINKS: StarterLinkDef[] = [
     label: "Call",
     placeholder: "+91 98765 43210",
     inputType: "tel",
+    icon: "call",
     formatValue: (raw) => `tel:${digitsOnly(raw)}`,
   },
   {
@@ -46,6 +51,7 @@ export const STARTER_LINKS: StarterLinkDef[] = [
     label: "Email",
     placeholder: "you@example.com",
     inputType: "email",
+    icon: "mail",
     // Idempotent: re-applying to an already-formatted value (e.g. when re-saving an
     // unedited link on an edit screen) must not double the prefix.
     formatValue: (raw) => `mailto:${raw.trim().replace(/^mailto:/i, "")}`,
@@ -57,6 +63,7 @@ export const STARTER_LINKS: StarterLinkDef[] = [
     label: "Instagram",
     placeholder: "instagram.com/you",
     inputType: "text",
+    icon: "logo-instagram",
     formatValue: (raw) =>
       raw.trim().startsWith("@")
         ? `https://instagram.com/${raw.trim().slice(1)}`
@@ -69,6 +76,7 @@ export const STARTER_LINKS: StarterLinkDef[] = [
     label: "LinkedIn",
     placeholder: "linkedin.com/in/you",
     inputType: "text",
+    icon: "logo-linkedin",
     formatValue: normalizeUrl,
   },
   {
@@ -77,6 +85,7 @@ export const STARTER_LINKS: StarterLinkDef[] = [
     label: "Website",
     placeholder: "yoursite.com",
     inputType: "text",
+    icon: "globe-outline",
     formatValue: normalizeUrl,
   },
 ];

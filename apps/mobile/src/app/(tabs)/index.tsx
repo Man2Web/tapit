@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { Image, Share, Text, View } from "react-native";
+import { ActivityIndicator, Image, Share, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import type { Database } from "@tapit/types";
 import { Button } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
@@ -18,6 +20,7 @@ function cardUrl(username: string) {
 export default function CardScreen() {
   const { session } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Refetches whenever this tab regains focus, so edits made on /edit-profile show up
   // immediately on return instead of needing a full app reload.
@@ -30,9 +33,20 @@ export default function CardScreen() {
         .eq("owner_id", session.user.id)
         .eq("is_primary", true)
         .maybeSingle()
-        .then(({ data }) => setProfile(data));
+        .then(({ data }) => {
+          setProfile(data);
+          setLoading(false);
+        });
     }, [session]),
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator color="#4f46e5" />
+      </SafeAreaView>
+    );
+  }
 
   if (!profile) return null;
 
@@ -48,7 +62,9 @@ export default function CardScreen() {
       {profile.avatar_url ? (
         <Image source={{ uri: profile.avatar_url }} className="h-24 w-24 rounded-full" />
       ) : (
-        <View className="h-24 w-24 rounded-full bg-neutral-200" />
+        <View className="h-24 w-24 items-center justify-center rounded-full bg-neutral-200">
+          <Ionicons name="person" size={36} color="#9ca3af" />
+        </View>
       )}
       <Text className="text-xl font-semibold">{profile.display_name}</Text>
       {profile.designation && <Text className="text-neutral-600">{profile.designation}</Text>}
@@ -59,14 +75,22 @@ export default function CardScreen() {
 
       <View className="mt-4 items-center gap-2">
         <QRCode value={url} size={160} />
-        <Text className="text-xs text-neutral-400">Scan to open this card</Text>
+        <View className="flex-row items-center gap-1">
+          <Ionicons name="qr-code-outline" size={14} color="#9ca3af" />
+          <Text className="text-xs text-neutral-400">Scan to open this card</Text>
+        </View>
       </View>
 
       <View className="mt-2 w-full flex-row gap-3">
-        <Button onPress={handleShare} className="flex-1">
+        <Button icon="share-social-outline" onPress={handleShare} className="flex-1">
           Share
         </Button>
-        <Button variant="secondary" onPress={() => router.push("/edit-profile")} className="flex-1">
+        <Button
+          variant="secondary"
+          icon="create-outline"
+          onPress={() => router.push("/edit-profile")}
+          className="flex-1"
+        >
           Edit Profile
         </Button>
       </View>

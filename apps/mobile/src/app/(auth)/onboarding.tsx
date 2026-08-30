@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
 import { Image, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { STARTER_LINKS, suggestUsername, type StarterLinkDef } from "@tapit/core";
@@ -182,7 +183,13 @@ export default function OnboardingScreen() {
               onChangeText={setDesignation}
             />
             <Input placeholder="Company" value={company} onChangeText={setCompany} />
-            <Button onPress={() => setStep(2)} disabled={!displayName.trim()} className="mt-2">
+            <Button
+              icon="chevron-forward"
+              iconPosition="right"
+              onPress={() => setStep(2)}
+              disabled={!displayName.trim()}
+              className="mt-2"
+            >
               Continue
             </Button>
           </View>
@@ -196,25 +203,39 @@ export default function OnboardingScreen() {
                 <Image source={{ uri: avatarUri }} className="h-24 w-24 rounded-full" />
               ) : (
                 <View className="h-24 w-24 items-center justify-center rounded-full bg-neutral-100">
-                  <Text className="text-sm text-neutral-400">Upload</Text>
+                  <Ionicons name="camera-outline" size={28} color="#9ca3af" />
                 </View>
               )}
             </Pressable>
             <View className="w-full flex-row gap-3">
-              <Button variant="secondary" onPress={() => setStep(1)} className="flex-1">
+              <Button
+                variant="secondary"
+                icon="chevron-back"
+                onPress={() => setStep(1)}
+                className="flex-1"
+              >
                 Back
               </Button>
-              <Button onPress={() => setStep(3)} className="flex-1">
+              <Button
+                icon="chevron-forward"
+                iconPosition="right"
+                onPress={() => setStep(3)}
+                className="flex-1"
+              >
                 {avatarUri ? "Continue" : "Skip for now"}
               </Button>
             </View>
 
             <BottomSheet visible={photoSheetOpen} onClose={() => setPhotoSheetOpen(false)}>
               <View className="gap-2">
-                <Button variant="secondary" onPress={() => pickImage("camera")}>
+                <Button variant="secondary" icon="camera-outline" onPress={() => pickImage("camera")}>
                   Take Photo
                 </Button>
-                <Button variant="secondary" onPress={() => pickImage("library")}>
+                <Button
+                  variant="secondary"
+                  icon="images-outline"
+                  onPress={() => pickImage("library")}
+                >
                   Choose from Library
                 </Button>
               </View>
@@ -237,18 +258,37 @@ export default function OnboardingScreen() {
                 className="flex-1 border-0 p-0"
               />
             </View>
-            <Text className="text-sm">
-              {usernameStatus === "checking" && <Text className="text-neutral-600">Checking…</Text>}
-              {usernameStatus === "available" && <Text className="text-success">Available</Text>}
-              {(usernameStatus === "taken" || usernameStatus === "invalid") && (
-                <Text className="text-danger">{usernameReason}</Text>
-              )}
-            </Text>
+            {usernameStatus !== "idle" && (
+              <View className="flex-row items-center gap-1.5">
+                {usernameStatus === "checking" && (
+                  <Text className="text-sm text-neutral-600">Checking…</Text>
+                )}
+                {usernameStatus === "available" && (
+                  <>
+                    <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                    <Text className="text-sm text-success">Available</Text>
+                  </>
+                )}
+                {(usernameStatus === "taken" || usernameStatus === "invalid") && (
+                  <>
+                    <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                    <Text className="text-sm text-danger">{usernameReason}</Text>
+                  </>
+                )}
+              </View>
+            )}
             <View className="flex-row gap-3">
-              <Button variant="secondary" onPress={() => setStep(2)} className="flex-1">
+              <Button
+                variant="secondary"
+                icon="chevron-back"
+                onPress={() => setStep(2)}
+                className="flex-1"
+              >
                 Back
               </Button>
               <Button
+                icon="chevron-forward"
+                iconPosition="right"
                 onPress={() => setStep(4)}
                 disabled={usernameStatus !== "available"}
                 className="flex-1"
@@ -265,7 +305,14 @@ export default function OnboardingScreen() {
             {STARTER_LINKS.map((link: StarterLinkDef) => (
               <View key={link.key} className="rounded-md border border-neutral-200 p-3">
                 <View className="flex-row items-center justify-between">
-                  <Text className="font-medium">{link.label}</Text>
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons
+                      name={link.icon as ComponentProps<typeof Ionicons>["name"]}
+                      size={20}
+                      color="#4b5563"
+                    />
+                    <Text className="font-medium">{link.label}</Text>
+                  </View>
                   <Switch
                     value={!!enabledLinks[link.key]}
                     onValueChange={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
@@ -283,13 +330,29 @@ export default function OnboardingScreen() {
               </View>
             ))}
 
-            {submitError && <Text className="text-sm text-danger">{submitError}</Text>}
+            {submitError && (
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                <Text className="text-sm text-danger">{submitError}</Text>
+              </View>
+            )}
 
             <View className="flex-row gap-3">
-              <Button variant="secondary" onPress={() => setStep(3)} className="flex-1">
+              <Button
+                variant="secondary"
+                icon="chevron-back"
+                onPress={() => setStep(3)}
+                className="flex-1"
+              >
                 Back
               </Button>
-              <Button onPress={handleFinish} loading={submitting} className="flex-1">
+              <Button
+                icon="checkmark"
+                iconPosition="right"
+                onPress={handleFinish}
+                loading={submitting}
+                className="flex-1"
+              >
                 Done
               </Button>
             </View>

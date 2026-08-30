@@ -1,7 +1,10 @@
 import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Platform, Pressable } from 'react-native';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const buttonVariants = cva(
   cn(
@@ -90,9 +93,15 @@ const buttonTextVariants = cva(
 
 type ButtonProps = React.ComponentProps<typeof Pressable> &
   React.RefAttributes<typeof Pressable> &
-  VariantProps<typeof buttonVariants> & { loading?: boolean };
+  VariantProps<typeof buttonVariants> & {
+    loading?: boolean;
+    /** Ionicons glyph shown alongside string children. Ignored for non-string children —
+     *  compose the icon into your own node in that case. */
+    icon?: IoniconName;
+    iconPosition?: 'left' | 'right';
+  };
 
-const spinnerColor: Record<NonNullable<VariantProps<typeof buttonVariants>['variant']>, string> = {
+const contentColor: Record<NonNullable<VariantProps<typeof buttonVariants>['variant']>, string> = {
   default: '#ffffff',
   destructive: '#ffffff',
   outline: '#0a0a0a',
@@ -101,7 +110,21 @@ const spinnerColor: Record<NonNullable<VariantProps<typeof buttonVariants>['vari
   link: '#4f46e5',
 };
 
-function Button({ className, variant = 'default', size, loading, disabled, children, ...props }: ButtonProps) {
+function Button({
+  className,
+  variant = 'default',
+  size,
+  loading,
+  icon,
+  iconPosition = 'left',
+  disabled,
+  children,
+  ...props
+}: ButtonProps) {
+  const color = contentColor[variant ?? 'default'];
+  const iconEl = icon ? <Ionicons name={icon} size={18} color={color} /> : null;
+  const label = typeof children === 'string' ? <Text>{children}</Text> : children;
+
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
       <Pressable
@@ -115,11 +138,15 @@ function Button({ className, variant = 'default', size, loading, disabled, child
         {...props}
       >
         {loading ? (
-          <ActivityIndicator color={spinnerColor[variant ?? 'default']} />
-        ) : typeof children === 'string' ? (
-          <Text>{children}</Text>
+          <ActivityIndicator color={color} />
+        ) : icon ? (
+          <>
+            {iconPosition === 'left' && iconEl}
+            {label}
+            {iconPosition === 'right' && iconEl}
+          </>
         ) : (
-          children
+          label
         )}
       </Pressable>
     </TextClassContext.Provider>
