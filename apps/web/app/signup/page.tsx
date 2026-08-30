@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/session";
-import { GoogleSignInButton } from "./google-button";
-import { PasswordLoginForm } from "./password-form";
+import { SignUpForm } from "./signup-form";
 
-export default async function LoginPage() {
+export default async function SignUpPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,22 +15,14 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold">Sign in to TapIt</h1>
+        <h1 className="text-2xl font-semibold">Create your account</h1>
         <p className="mt-1 text-sm text-neutral-600">Your digital visiting card.</p>
       </div>
 
-      <PasswordLoginForm />
-
-      <div className="flex items-center gap-3 text-xs text-neutral-400">
-        <div className="h-px flex-1 bg-neutral-200" />
-        or
-        <div className="h-px flex-1 bg-neutral-200" />
-      </div>
-
-      <GoogleSignInButton />
+      <SignUpForm />
 
       <p className="text-center text-sm text-neutral-600">
-        No account? <a href="/signup" className="font-medium underline">Sign up</a>
+        Already have an account? <a href="/login" className="font-medium underline">Sign in</a>
       </p>
     </main>
   );

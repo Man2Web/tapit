@@ -71,3 +71,25 @@ version-skew issue first.
 OAuth consent screen + client in Google Cloud Console) is a manual step the user does** —
 no MCP tool exposes Supabase Auth provider config, and creating a Google Cloud OAuth client
 needs the user's own Google account.
+
+## 2026-08-30 — Email + password auth (Google put on hold)
+
+User asked to build email + password auth now and hold Google for later. Kept the Google
+button on `/login` rather than removing it — it's dormant (does nothing useful) until the
+provider is enabled, but there's no reason to delete working code for it.
+
+**"Username and password" turned out to mean email + password**, confirmed with the user.
+Supabase Auth's password login has no native username identifier; a true-username flow
+would mean fabricating an internal email per user and losing built-in password-reset/email
+verification. `profiles.username` (the public card slug, `/u/<username>`) is unrelated to
+login and unaffected either way.
+
+Built: `/signup` (email/password/confirm, handles both "confirmation required" and
+"confirmation disabled" project settings), `/forgot-password` → email link →
+`/auth/callback?next=/auth/reset-password` → `/auth/reset-password` (set new password).
+`/login` now has the password form as primary, Google as a secondary option below a divider.
+
+Verified live end-to-end against the real `tapit` Supabase project (sign up → confirm email
+server-side → sign in → dashboard renders the account → sign out → redirected to `/login`),
+then deleted the test `auth.users` row — `user_profiles` cascade-deleted with it, confirming
+the FK is wired correctly.
