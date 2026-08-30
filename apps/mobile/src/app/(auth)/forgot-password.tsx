@@ -1,34 +1,48 @@
 import { useState } from "react";
-import { Link, router } from "expo-router";
+import * as Linking from "expo-linking";
+import { Link } from "expo-router";
 import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
 
   async function handleSubmit() {
     setError(null);
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: Linking.createURL("/reset-password"),
+    });
     setSubmitting(false);
     if (error) {
       setError(error.message);
       return;
     }
-    router.replace("/");
+    setSent(true);
+  }
+
+  if (sent) {
+    return (
+      <SafeAreaView className="flex-1 justify-center px-6">
+        <Text className="text-center text-neutral-600">
+          If an account exists for <Text className="font-medium">{email}</Text>, a reset link
+          is on its way. Open it on this device to finish resetting your password.
+        </Text>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView className="flex-1 justify-center gap-4 bg-white px-6">
       <View className="mb-2 items-center">
-        <Text className="text-2xl font-semibold">Sign in to TapIt</Text>
-        <Text className="mt-1 text-neutral-600">Your digital visiting card.</Text>
+        <Text className="text-2xl font-semibold">Reset your password</Text>
+        <Text className="mt-1 text-neutral-600">We&apos;ll email you a link.</Text>
       </View>
 
       <Input
@@ -39,25 +53,14 @@ export default function LoginScreen() {
         value={email}
         onChangeText={setEmail}
       />
-      <Input
-        placeholder="Password"
-        secureTextEntry
-        autoComplete="current-password"
-        value={password}
-        onChangeText={setPassword}
-      />
       {error && <Text className="text-sm text-danger">{error}</Text>}
 
-      <Button onPress={handleSubmit} loading={submitting} disabled={!email || !password}>
-        Sign in
+      <Button onPress={handleSubmit} loading={submitting} disabled={!email}>
+        Send reset link
       </Button>
 
-      <Link href="/forgot-password" className="text-center text-neutral-600">
-        Forgot password?
-      </Link>
-
-      <Link href="/signup" className="text-center text-neutral-600">
-        No account? <Text className="font-medium underline">Sign up</Text>
+      <Link href="/login" className="text-center text-neutral-600">
+        Back to sign in
       </Link>
     </SafeAreaView>
   );

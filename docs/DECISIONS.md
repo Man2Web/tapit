@@ -332,3 +332,30 @@ whenever mobile auth work resumes.
 Verified: full `apps/web` typecheck, lint, and production build clean after the deletions
 (build output confirms no more `ƒ Middleware` line, and the route list is exactly the
 receiver + system routes above — nothing accidentally left reachable).
+
+## 2026-08-30 — Mobile password reset
+
+Closed the gap flagged right after the web-removal work: mobile is now the only account
+entry point, and it had no way to recover a forgotten password.
+
+Added `/(auth)/forgot-password` (email → `resetPasswordForEmail`) and a **root-level**
+`/reset-password` screen — deliberately *not* under `(auth)` or `(tabs)`, since both of those
+groups redirect based on session/profile state, and the moment the recovery code exchange
+succeeds it would otherwise yank the user to the Card tab before they'd typed a new password.
+Uses `expo-linking`'s `Linking.createURL("/reset-password")` for the `redirectTo`, so it
+resolves to the right scheme automatically (`tapit://reset-password` in a dev/standalone
+build) rather than a hardcoded string.
+
+Same `exchangeCodeForSession` pattern as web's (now-removed) equivalent — PKCE `code` query
+param, not raw tokens. `useLocalSearchParams()` reads it; a scoped `eslint-disable` covers the
+same legitimate "loading state before an async call, inside an effect" pattern flagged
+elsewhere in this session.
+
+**Verified what's actually testable without a real device or email inbox** (neither available
+here): confirmed live that `resetPasswordForEmail` succeeds with our `tapit://` redirect URL —
+i.e. Supabase's redirect-URL allowlist isn't rejecting it, which was a real risk since no
+mobile scheme was explicitly configured in the Supabase dashboard. Confirmed both
+`reset-password` fallback states render correctly (no `code` param; an invalid `code` that
+fails the exchange). **Not verified**: the actual tap-email-link-and-land-in-app path — that
+needs a real device with the app installed and a real inbox. Flagging this as unverified
+rather than claiming full coverage.
