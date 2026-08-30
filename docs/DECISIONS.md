@@ -176,3 +176,94 @@ seeded demo profile — vCard resolved `mailto:`/website correctly into `EMAIL`/
 omitted `TEL`/`PHOTO` cleanly (the seed profile has no phone link or avatar); QR returned a
 valid `image/png`. Confirmed both 404 for an unknown username, and the public page renders
 the QR image and sticky bar correctly.
+
+## 2026-08-30 — Mobile app: auth, onboarding, tabs (priority pivot)
+
+User pivoted priorities: pause further web work, build the mobile app first (matches
+PRODUCT.md §1's actual plan — "mobile app is the primary editor, web is view + dashboard" —
+which the web-first sequence up to this point had been quietly diverging from), and an
+internal Man2Web admin dashboard (users/subscriptions) after that, staying on web since it's
+an ops tool for the team, not customer-facing. Admin dashboard not started yet.
+
+**Component library: switched from a build-time decision to a build-time experiment.**
+User asked about gluestack-ui and `ui.ahmedbna.com` (BNA UI) mid-task. Recommendation stayed
+React Native Reusables per §13.1's existing reasoning (chosen partly *for* AI-assisted
+generation — plain Tailwind `className`, not a library-specific prop API), and because the
+gluestack risk (v1→v2 API confusion) bites on every future screen, not just an initial
+scaffold. User agreed; proceeded with RNR's actual CLI rather than the hand-built
+Tailwind-only components written earlier in the session before this question came up.
+
+**NativeWind setup** (apps/mobile only — apps/web stays on Tailwind v4 per the original
+DECISION): `nativewind@^4.2.6` + `tailwindcss@^3.4.19` (NOT v4 — NativeWind's stable release
+targets Tailwind v3's engine; a `5.0.0-preview` exists for v4 but isn't stable). Colors/type
+scale/spacing/radius pulled from `packages/config/tokens.ts` in `tailwind.config.ts`, numbers
+converted to px/string since Tailwind's CSS pipeline needs real CSS values (tokens.ts itself
+keeps bare numbers, correct for RN's unitless dp).
+
+**RN Reusables CLI has a real bug**: `add`'s initial "write a components.json?" confirm
+prompt ignores `--yes` entirely (traced into the CLI's bundled source — `Prompt_exports.confirm`
+is called unconditionally, unlike every other prompt in the same function which checks
+`options.yes` first). Hangs forever under this session's non-interactive stdin. Worked around
+by pre-writing `components.json` by hand, in the exact shape the CLI's own schema expects, so
+it never hits that code path. If a future `add` run hangs identically, this is why.
+
+**Scaffolded Button/Input via the CLI; it also created `text.tsx`** (a `TextClassContext`
+pattern Button depends on for text-color inheritance). Renamed our `cn()` helper file from
+`lib/cn.ts` to `lib/utils.ts` to match the alias the CLI's generated imports expect
+(`@/lib/utils`) — same function, just the shadcn/RNR-conventional location.
+
+**Fixes required after the CLI run, none optional:**
+- `class-variance-authority` — used by the generated components but never actually installed
+  (the CLI's own dependency-install step silently no-op'd for it under this pnpm workspace;
+  `@rn-primitives/slot` installed fine in the same run, this one didn't). Added by hand.
+- `react-native-css-interop` — only a transitive dependency of `nativewind`, but Metro's
+  resolution under pnpm's strict `node_modules` needs it listed directly. Added as an explicit
+  dependency.
+- CLI's generated Button has no `loading` prop (our onboarding/auth screens need one for
+  async submit states). Added it directly to the scaffolded file — once copy-pasted in, it's
+  ours to extend, which is the whole point of this style of library.
+- `metro.config.js` missing `inlineRem: 16` and the whole shadcn semantic color set
+  (`background`/`foreground`/`primary`/etc.) missing from `tailwind.config.ts` — both flagged
+  by the CLI's own `doctor` command. Mapped the semantic names onto our own `tokens.ts` values
+  (not shadcn's default gray/near-black theme) so "primary" etc. stays on-brand; used static
+  light-mode values rather than the usual CSS-variable/dark-mode machinery, since dark mode is
+  optional for v1 (§13.5) and this avoids a parallel HSL-variable system now that would need
+  reconciling with `tokens.ts` later.
+- `Cannot manually set color scheme, as dark mode is type 'media'` runtime crash — Expo
+  Router's internal theming calls NativeWind's color-scheme sync unconditionally; without
+  `darkMode: "class"` in `tailwind.config.ts` (the default is `"media"`, OS-only) that sync
+  throws. Not about actually using dark mode, just fixes the crash.
+- `app.json`'s `web.output` changed from `"static"` (server-prerendered) to `"single"` (SPA,
+  client-only). Static rendering ran our `AuthProvider`'s `supabase.auth.getSession()` during
+  Node-side prerendering, where AsyncStorage's web shim needs `window` — RN-web isn't a real
+  target for this product anyway (`apps/web` is), `--platform web` export is only used here as
+  a Docker-free bundle-verification proxy, so SPA output sidesteps the whole problem rather
+  than fixing session-loading-during-SSR properly.
+- Two `react-hooks/set-state-in-effect` lint errors in the onboarding wizard: the
+  displayName→username suggestion now uses React's documented "adjust state during render"
+  pattern instead of an effect (cleaner fix, no behavior change); the debounced
+  username-availability check keeps its effect with a scoped `eslint-disable` — setting a
+  loading status synchronously before an async call is React's own endorsed "fetch in an
+  effect" pattern, not the anti-pattern this rule targets.
+
+**`experiments.typedRoutes` turned off entirely** (was a much bigger time sink than the above).
+`.expo/types/router.d.ts` — the file backing typed route strings — kept getting regenerated
+polluted with paths from `apps/web` and even our own `packages/core`, because Metro watches
+the whole pnpm workspace (needed for real cross-package resolution) and Expo Router's
+typed-route generator over-matches any file reachable through that watch, not just actual
+descendants of `src/app`. This was **not** stale-cache flakiness — deleting the cache and
+regenerating produced a correctly-scoped file about half the time and a polluted one the other
+half, depending on watcher timing at the moment of the request. Since this only affects
+compile-time route-string autocomplete (not runtime behavior — `router.replace("/")` always
+worked), and no reliable fix presented itself without much deeper Metro/Expo Router
+internals work, typed routes were disabled rather than fought further. Revisit only if a real
+fix surfaces upstream; hand-typed route strings are a fine trade for a working build in the
+meantime.
+
+Verified live end-to-end via the Expo web preview (`expo start --web`, since no Xcode/Android
+SDK exists on this machine): signed up a fresh account, confirmed it server-side, logged in,
+walked the full 4-step onboarding wizard (auto-suggested username, live availability check,
+WhatsApp link), landed on the Card tab showing the real profile, confirmed the Settings tab's
+sign-out redirects to `/login`. Confirmed in Postgres that `profile_links.value` was formatted
+identically to web's output (`https://wa.me/919876500000`) — same shared `packages/core`
+logic, not reimplemented. Deleted the test account after.
