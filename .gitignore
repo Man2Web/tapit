@@ -1,0 +1,28 @@
+node_modules/
+.turbo/
+dist/
+build/
+.next/
+.expo/
+.expo-shared/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# EAS
+*.p12
+*.mobileprovision
+*.jks
+*.keystore

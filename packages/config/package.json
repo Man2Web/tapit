@@ -1,0 +1,8 @@
+{
+  "name": "@tapit/config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./tokens.ts",
+  "types": "./tokens.ts",
+  "files": ["tsconfig.base.json", "tokens.ts"]
+}
