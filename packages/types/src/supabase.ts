@@ -1,7 +1,4 @@
-// AUTO-GENERATED — do not hand-edit.
-// Regenerate with: pnpm gen:types  (or supabase gen types typescript --project-id amveuzvlhbttqbldjqye --schema public)
-
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -10,11 +7,96 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      leads: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          profile_id: string
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          profile_id: string
+          source?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          profile_id?: string
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: number
+          link_id: string | null
+          profile_id: string
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: number
+          link_id?: string | null
+          profile_id: string
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: number
+          link_id?: string | null
+          profile_id?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_events_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "profile_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_links: {
         Row: {
           click_count: number | null
@@ -67,21 +149,26 @@ export type Database = {
       }
       profiles: {
         Row: {
+          accreditations: string | null
           avatar_url: string | null
           bio: string | null
           company: string | null
           cover_url: string | null
           created_at: string
+          department: string | null
           designation: string | null
           direct_link_url: string | null
           display_name: string
+          first_name: string | null
           id: string
           is_active: boolean | null
           is_primary: boolean | null
+          last_name: string | null
           lead_capture_config: Json | null
           lead_capture_enabled: boolean | null
           logo_url: string | null
           owner_id: string
+          pronouns: string | null
           template_locked: boolean | null
           theme: Json | null
           updated_at: string
@@ -89,21 +176,26 @@ export type Database = {
           view_count: number | null
         }
         Insert: {
+          accreditations?: string | null
           avatar_url?: string | null
           bio?: string | null
           company?: string | null
           cover_url?: string | null
           created_at?: string
+          department?: string | null
           designation?: string | null
           direct_link_url?: string | null
           display_name: string
+          first_name?: string | null
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null
+          last_name?: string | null
           lead_capture_config?: Json | null
           lead_capture_enabled?: boolean | null
           logo_url?: string | null
           owner_id: string
+          pronouns?: string | null
           template_locked?: boolean | null
           theme?: Json | null
           updated_at?: string
@@ -111,21 +203,26 @@ export type Database = {
           view_count?: number | null
         }
         Update: {
+          accreditations?: string | null
           avatar_url?: string | null
           bio?: string | null
           company?: string | null
           cover_url?: string | null
           created_at?: string
+          department?: string | null
           designation?: string | null
           direct_link_url?: string | null
           display_name?: string
+          first_name?: string | null
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null
+          last_name?: string | null
           lead_capture_config?: Json | null
           lead_capture_enabled?: boolean | null
           logo_url?: string | null
           owner_id?: string
+          pronouns?: string | null
           template_locked?: boolean | null
           theme?: Json | null
           updated_at?: string
@@ -178,9 +275,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_own_account: { Args: never; Returns: undefined }
+      get_profile_insights: {
+        Args: never
+        Returns: {
+          qr_views: number
+          vcard_saves: number
+          views: number
+        }[]
+      }
       is_username_available: {
         Args: { check_username: string }
         Returns: boolean
+      }
+      log_profile_event: {
+        Args: { p_event: string; p_source?: string; p_username: string }
+        Returns: undefined
+      }
+      submit_lead: {
+        Args: {
+          p_email?: string
+          p_name?: string
+          p_phone?: string
+          p_username: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
