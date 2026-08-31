@@ -2,48 +2,131 @@ import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { Redirect, router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Image, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { STARTER_LINKS, type StarterLinkDef } from "@tapit/core";
+import { ALL_TOGGLE_LINKS, formatCustomLinkValue, type StarterLinkDef } from "@tapit/core";
 import type { Database } from "@tapit/types";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ListRow } from "@/components/ui/list-row";
+import { Switch } from "@/components/ui/switch";
+import { Text } from "@/components/ui/text";
+import { UsernameStatus } from "@/components/ui/username-status";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useAuth } from "@/lib/auth-context";
+import { cn } from "@/lib/utils";
+import { colors } from "@/lib/colors";
 import { supabase } from "@/lib/supabase";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
-type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
+type UsernameCheckStatus = "idle" | "checking" | "available" | "taken" | "invalid";
+// `id` is a stable client-side React key; `savedId` is the profile_links row id once persisted.
+type CustomLinkDraft = { id: string; savedId?: string; label: string; value: string };
+type EditorTab = "display" | "information" | "links";
+type PhotoTarget = "avatar" | "logo";
+
+const CONTACT_LINKS = ALL_TOGGLE_LINKS.filter((l) => l.kind !== "social");
+const SOCIAL_LINKS = ALL_TOGGLE_LINKS.filter((l) => l.kind === "social");
+
+function LinkToggleRow({
+  link,
+  enabled,
+  value,
+  onToggle,
+  onChangeValue,
+}: {
+  link: StarterLinkDef;
+  enabled: boolean;
+  value: string;
+  onToggle: (v: boolean) => void;
+  onChangeValue: (v: string) => void;
+}) {
+  return (
+    <ListRow
+      leading={
+        <Ionicons
+          name={link.icon as ComponentProps<typeof Ionicons>["name"]}
+          size={20}
+          color={colors.mutedForeground}
+        />
+      }
+      title={link.label}
+      trailing={<Switch value={enabled} onValueChange={onToggle} />}
+      footer={
+        enabled ? (
+          <Input
+            placeholder={link.placeholder}
+            value={value}
+            onChangeText={onChangeValue}
+            autoCapitalize="none"
+          />
+        ) : undefined
+      }
+    />
+  );
+}
+
+function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      className={cn("flex-1 items-center rounded-md py-2", active && "bg-primary")}
+    >
+      <Text
+        className={cn("text-sm font-medium", active ? "text-primary-foreground" : "text-muted-foreground")}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function EditProfileScreen() {
   const { session, refreshProfile } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
-
-  const [displayName, setDisplayName] = useState("");
-  const [designation, setDesignation] = useState("");
-  const [company, setCompany] = useState("");
-  const [bio, setBio] = useState("");
+  const [tab, setTab] = useState<EditorTab>("display");
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
-  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
+  const [photoSheetTarget, setPhotoSheetTarget] = useState<PhotoTarget | null>(null);
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [accreditations, setAccreditations] = useState("");
+  const [pronouns, setPronouns] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [department, setDepartment] = useState("");
+  const [company, setCompany] = useState("");
+  const [bio, setBio] = useState("");
 
   const [originalUsername, setOriginalUsername] = useState("");
   const [username, setUsername] = useState("");
-  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
+  const [usernameStatus, setUsernameStatus] = useState<UsernameCheckStatus>("idle");
   const [usernameReason, setUsernameReason] = useState<string | null>(null);
 
   const [enabledLinks, setEnabledLinks] = useState<Record<string, boolean>>({});
   const [linkValues, setLinkValues] = useState<Record<string, string>>({});
   const [linkIds, setLinkIds] = useState<Record<string, string>>({});
+  const [linkSearch, setLinkSearch] = useState("");
+
+  const [customLinks, setCustomLinks] = useState<CustomLinkDraft[]>([]);
+  const [removedCustomLinkIds, setRemovedCustomLinkIds] = useState<string[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const checkSeq = useRef(0);
+  const customLinkSeq = useRef(0);
 
   useEffect(() => {
     if (!session) return;
@@ -61,11 +144,20 @@ export default function EditProfileScreen() {
       }
 
       setProfile(profileData);
-      setDisplayName(profileData.display_name);
+      // Existing cards only ever had a single `display_name` — best-effort split it into
+      // first/last on first edit rather than showing blank fields; from then on the stored
+      // first_name/last_name (set on every save below) take over as the source of truth.
+      const [firstFromName, ...restFromName] = profileData.display_name.trim().split(/\s+/);
+      setFirstName(profileData.first_name ?? firstFromName ?? "");
+      setLastName(profileData.last_name ?? restFromName.join(" "));
+      setAccreditations(profileData.accreditations ?? "");
+      setPronouns(profileData.pronouns ?? "");
       setDesignation(profileData.designation ?? "");
+      setDepartment(profileData.department ?? "");
       setCompany(profileData.company ?? "");
       setBio(profileData.bio ?? "");
       setAvatarUrl(profileData.avatar_url);
+      setLogoUrl(profileData.logo_url);
       setOriginalUsername(profileData.username);
       setUsername(profileData.username);
 
@@ -77,18 +169,24 @@ export default function EditProfileScreen() {
       const enabled: Record<string, boolean> = {};
       const values: Record<string, string> = {};
       const ids: Record<string, string> = {};
+      const custom: CustomLinkDraft[] = [];
       for (const link of (links ?? []) as ProfileLink[]) {
-        const starter = STARTER_LINKS.find((l) =>
+        if (link.kind === "custom") {
+          custom.push({ id: `saved-${link.id}`, savedId: link.id, label: link.label, value: link.value });
+          continue;
+        }
+        const def = ALL_TOGGLE_LINKS.find((l) =>
           l.platform ? l.platform === link.platform : l.kind === link.kind,
         );
-        if (!starter) continue;
-        enabled[starter.key] = true;
-        values[starter.key] = link.value;
-        ids[starter.key] = link.id;
+        if (!def) continue;
+        enabled[def.key] = true;
+        values[def.key] = link.value;
+        ids[def.key] = link.id;
       }
       setEnabledLinks(enabled);
       setLinkValues(values);
       setLinkIds(ids);
+      setCustomLinks(custom);
       setLoading(false);
     })();
   }, [session]);
@@ -120,8 +218,8 @@ export default function EditProfileScreen() {
   }, [username, originalUsername]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  async function pickImage(source: "camera" | "library") {
-    setPhotoSheetOpen(false);
+  async function pickImage(source: "camera" | "library", target: PhotoTarget) {
+    setPhotoSheetTarget(null);
     const permission =
       source === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -138,27 +236,32 @@ export default function EditProfileScreen() {
           });
 
     if (!result.canceled && result.assets[0]) {
-      setNewAvatarUri(result.assets[0].uri);
+      if (target === "avatar") setNewAvatarUri(result.assets[0].uri);
+      else setNewLogoUri(result.assets[0].uri);
     }
   }
 
-  async function uploadAvatarIfChanged(): Promise<string | null> {
-    if (!newAvatarUri || !session) return avatarUrl;
-    const response = await fetch(newAvatarUri);
+  async function uploadImageIfChanged(
+    uri: string | null,
+    bucket: "avatars" | "logos",
+    fallbackUrl: string | null,
+  ): Promise<string | null> {
+    if (!uri || !session) return fallbackUrl;
+    const response = await fetch(uri);
     const arrayBuffer = await response.arrayBuffer();
     const contentType = response.headers.get("content-type") ?? "image/jpeg";
     const ext = contentType.split("/")[1] ?? "jpg";
     const path = `${session.user.id}/${Date.now()}.${ext}`;
 
-    const { error } = await supabase.storage.from("avatars").upload(path, arrayBuffer, {
+    const { error } = await supabase.storage.from(bucket).upload(path, arrayBuffer, {
       contentType,
       upsert: true,
     });
     if (error) {
-      setSubmitError(`Photo upload failed: ${error.message}`);
-      return avatarUrl;
+      setSubmitError(`${bucket === "avatars" ? "Photo" : "Logo"} upload failed: ${error.message}`);
+      return fallbackUrl;
     }
-    return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   }
 
   async function handleSave() {
@@ -168,17 +271,25 @@ export default function EditProfileScreen() {
     setSubmitting(true);
     setSubmitError(null);
 
-    const newAvatarUrl = await uploadAvatarIfChanged();
+    const newAvatarUrl = await uploadImageIfChanged(newAvatarUri, "avatars", avatarUrl);
+    const newLogoUrl = await uploadImageIfChanged(newLogoUri, "logos", logoUrl);
+    const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
         username,
         display_name: displayName,
-        designation: designation || null,
-        company: company || null,
-        bio: bio || null,
+        first_name: firstName.trim() || null,
+        last_name: lastName.trim() || null,
+        accreditations: accreditations.trim() || null,
+        pronouns: pronouns.trim() || null,
+        designation: designation.trim() || null,
+        department: department.trim() || null,
+        company: company.trim() || null,
+        bio: bio.trim() || null,
         avatar_url: newAvatarUrl,
+        logo_url: newLogoUrl,
       })
       .eq("id", profile.id);
 
@@ -192,7 +303,7 @@ export default function EditProfileScreen() {
       return;
     }
 
-    for (const link of STARTER_LINKS) {
+    for (const link of ALL_TOGGLE_LINKS) {
       const raw = linkValues[link.key];
       const existingId = linkIds[link.key];
       const isEnabled = enabledLinks[link.key] && !!raw?.trim();
@@ -200,7 +311,9 @@ export default function EditProfileScreen() {
       if (isEnabled) {
         const value = link.formatValue(raw);
         if (existingId) {
-          await supabase.from("profile_links").update({ value }).eq("id", existingId);
+          // Also backfills `icon` on every save — rows created before the icon column was
+          // populated at insert time would otherwise stay iconless forever.
+          await supabase.from("profile_links").update({ value, icon: link.icon }).eq("id", existingId);
         } else {
           await supabase.from("profile_links").insert({
             profile_id: profile.id,
@@ -208,11 +321,34 @@ export default function EditProfileScreen() {
             platform: link.platform ?? null,
             label: link.label,
             value,
-            position: STARTER_LINKS.indexOf(link),
+            icon: link.icon,
+            position: ALL_TOGGLE_LINKS.indexOf(link),
           });
         }
       } else if (existingId) {
         await supabase.from("profile_links").delete().eq("id", existingId);
+      }
+    }
+
+    for (const id of removedCustomLinkIds) {
+      await supabase.from("profile_links").delete().eq("id", id);
+    }
+    for (const [index, draft] of customLinks.entries()) {
+      const label = draft.label.trim();
+      const raw = draft.value.trim();
+      if (!label || !raw) continue;
+      const value = formatCustomLinkValue(raw);
+      if (draft.savedId) {
+        await supabase.from("profile_links").update({ label, value }).eq("id", draft.savedId);
+      } else {
+        await supabase.from("profile_links").insert({
+          profile_id: profile.id,
+          kind: "custom",
+          platform: null,
+          label,
+          value,
+          position: ALL_TOGGLE_LINKS.length + index,
+        });
       }
     }
 
@@ -227,116 +363,257 @@ export default function EditProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#4f46e5" />
+      <SafeAreaView className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }
 
   if (!profile) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-center text-neutral-600">
-          No card yet — finish onboarding first.
-        </Text>
+      // Padding lives on this inner View, not the SafeAreaView — see docs/DECISIONS.md
+      // (SafeAreaView's inline inset style silently overrides className padding).
+      <SafeAreaView className="flex-1 bg-background">
+        <View className="flex-1 items-center justify-center px-6 pt-12">
+          <Text variant="muted" className="text-center">
+            No card yet — finish onboarding first.
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView contentContainerClassName="gap-4 px-6 py-8" keyboardShouldPersistTaps="handled">
-        <Text className="text-center text-xl font-semibold">Edit profile</Text>
-
-        <View className="items-center gap-2">
-          <Pressable onPress={() => setPhotoSheetOpen(true)}>
-            {newAvatarUri || avatarUrl ? (
-              <Image source={{ uri: newAvatarUri ?? avatarUrl! }} className="h-24 w-24 rounded-full" />
-            ) : (
-              <View className="h-24 w-24 items-center justify-center rounded-full bg-neutral-100">
-                <Ionicons name="camera-outline" size={28} color="#9ca3af" />
-              </View>
-            )}
-          </Pressable>
-          <Text className="text-sm text-neutral-600">Change photo</Text>
+    <SafeAreaView className="flex-1 bg-background">
+      <View className="gap-3 px-6 pt-12">
+        <Text variant="h4" className="text-center">
+          Edit profile
+        </Text>
+        <View className="flex-row gap-1 rounded-md bg-muted p-1">
+          <TabButton label="Display" active={tab === "display"} onPress={() => setTab("display")} />
+          <TabButton
+            label="Information"
+            active={tab === "information"}
+            onPress={() => setTab("information")}
+          />
+          <TabButton label="Links" active={tab === "links"} onPress={() => setTab("links")} />
         </View>
+      </View>
 
-        <Input placeholder="Full name" value={displayName} onChangeText={setDisplayName} />
-        <Input placeholder="Job Title" value={designation} onChangeText={setDesignation} />
-        <Input placeholder="Organization Name" value={company} onChangeText={setCompany} />
-        <Input
-          placeholder="Bio — a line or two about you"
-          value={bio}
-          onChangeText={setBio}
-          multiline
-          numberOfLines={3}
-          className="min-h-20"
-        />
-
-        <View className="gap-1.5">
-          <Text className="text-sm font-medium text-neutral-700">Profile link</Text>
-          <View className="flex-row items-center rounded-md border border-neutral-200 px-4 py-3">
-            <Text className="text-neutral-400">tapit.in/u/</Text>
-            <Input
-              value={username}
-              onChangeText={(v) => setUsername(v.toLowerCase())}
-              autoCapitalize="none"
-              className="flex-1 border-0 p-0"
-            />
-          </View>
-          {username !== originalUsername && usernameStatus !== "idle" && (
-            <View className="flex-row items-center gap-1.5">
-              {usernameStatus === "checking" && (
-                <Text className="text-sm text-neutral-600">Checking…</Text>
-              )}
-              {usernameStatus === "available" && (
-                <>
-                  <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
-                  <Text className="text-sm text-success">Available</Text>
-                </>
-              )}
-              {(usernameStatus === "taken" || usernameStatus === "invalid") && (
-                <>
-                  <Ionicons name="alert-circle" size={16} color="#dc2626" />
-                  <Text className="text-sm text-danger">{usernameReason}</Text>
-                </>
-              )}
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="gap-4 px-6 pb-4 pt-4"
+        keyboardShouldPersistTaps="handled"
+      >
+        {tab === "display" && (
+          <>
+            <View className="items-center gap-2">
+              <Pressable onPress={() => setPhotoSheetTarget("avatar")}>
+                <Avatar uri={newAvatarUri ?? avatarUrl} size={96} />
+              </Pressable>
+              <Text variant="muted" className="text-sm">
+                Change photo
+              </Text>
             </View>
-          )}
-        </View>
 
-        <Text className="mt-2 font-semibold">Links</Text>
-        {STARTER_LINKS.map((link: StarterLinkDef) => (
-          <View key={link.key} className="rounded-md border border-neutral-200 p-3">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <Ionicons
-                  name={link.icon as ComponentProps<typeof Ionicons>["name"]}
-                  size={20}
-                  color="#4b5563"
-                />
-                <Text className="font-medium">{link.label}</Text>
-              </View>
-              <Switch
-                value={!!enabledLinks[link.key]}
-                onValueChange={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
-              />
+            <View className="items-center gap-2">
+              <Pressable onPress={() => setPhotoSheetTarget("logo")}>
+                <Avatar uri={newLogoUri ?? logoUrl} size={72} fallbackIcon="business-outline" />
+              </Pressable>
+              <Text variant="muted" className="text-sm">
+                {newLogoUri ?? logoUrl ? "Change logo" : "Add logo"}
+              </Text>
             </View>
-            {enabledLinks[link.key] && (
+          </>
+        )}
+
+        {tab === "information" && (
+          <>
+            <Field label="First Name">
+              <Input value={firstName} onChangeText={setFirstName} />
+            </Field>
+            <Field label="Last Name">
+              <Input value={lastName} onChangeText={setLastName} />
+            </Field>
+            <Field label="Accreditations">
+              <Input placeholder="e.g. MD, PhD" value={accreditations} onChangeText={setAccreditations} />
+            </Field>
+            <Field label="Pronouns">
+              <Input placeholder="e.g. she/her" value={pronouns} onChangeText={setPronouns} />
+            </Field>
+
+            <Text variant="large" className="mt-2">
+              Affiliation
+            </Text>
+            <Field label="Title">
+              <Input value={designation} onChangeText={setDesignation} />
+            </Field>
+            <Field label="Department">
+              <Input value={department} onChangeText={setDepartment} />
+            </Field>
+            <Field label="Organization Name">
+              <Input value={company} onChangeText={setCompany} />
+            </Field>
+            <Field label="Bio">
               <Input
-                placeholder={link.placeholder}
-                value={linkValues[link.key] ?? ""}
-                onChangeText={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
-                autoCapitalize="none"
-                className="mt-2"
+                placeholder="A line or two about you"
+                value={bio}
+                onChangeText={setBio}
+                multiline
+                numberOfLines={3}
+                className="min-h-20"
               />
-            )}
-          </View>
-        ))}
+            </Field>
 
+            <Field label="Profile link">
+              <View className="flex-row items-center rounded-md border border-border px-4 py-3">
+                <Text className="text-muted-foreground">tapit.in/u/</Text>
+                <Input
+                  value={username}
+                  onChangeText={(v) => setUsername(v.toLowerCase())}
+                  autoCapitalize="none"
+                  className="flex-1 border-0 p-0"
+                />
+              </View>
+              {username !== originalUsername && (
+                <UsernameStatus status={usernameStatus} reason={usernameReason} />
+              )}
+            </Field>
+          </>
+        )}
+
+        {tab === "links" && (
+          <>
+            {(() => {
+              const query = linkSearch.trim().toLowerCase();
+              const matches = (link: StarterLinkDef) => link.label.toLowerCase().includes(query);
+              const contactMatches = CONTACT_LINKS.filter(matches);
+              const socialMatches = SOCIAL_LINKS.filter(matches);
+              const contactCount = CONTACT_LINKS.filter((l) => enabledLinks[l.key]).length;
+              const socialCount = SOCIAL_LINKS.filter((l) => enabledLinks[l.key]).length;
+
+              return (
+                <>
+                  <View className="flex-row items-center gap-2 rounded-md border border-border px-4 py-3">
+                    <Ionicons name="search-outline" size={16} color={colors.muted} />
+                    <Input
+                      placeholder="Search links (e.g. Instagram, UPI)"
+                      value={linkSearch}
+                      onChangeText={setLinkSearch}
+                      autoCapitalize="none"
+                      className="flex-1 border-0 p-0"
+                    />
+                  </View>
+
+                  {contactMatches.length > 0 && (
+                    <>
+                      <Text variant="large" className="mt-2">
+                        Contact & payments{contactCount > 0 ? ` (${contactCount} added)` : ""}
+                      </Text>
+                      {contactMatches.map((link) => (
+                        <LinkToggleRow
+                          key={link.key}
+                          link={link}
+                          enabled={!!enabledLinks[link.key]}
+                          value={linkValues[link.key] ?? ""}
+                          onToggle={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
+                          onChangeValue={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
+                        />
+                      ))}
+                    </>
+                  )}
+
+                  {socialMatches.length > 0 && (
+                    <>
+                      <Text variant="large" className="mt-2">
+                        Social{socialCount > 0 ? ` (${socialCount} added)` : ""}
+                      </Text>
+                      {socialMatches.map((link) => (
+                        <LinkToggleRow
+                          key={link.key}
+                          link={link}
+                          enabled={!!enabledLinks[link.key]}
+                          value={linkValues[link.key] ?? ""}
+                          onToggle={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
+                          onChangeValue={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
+                        />
+                      ))}
+                    </>
+                  )}
+
+                  {query && contactMatches.length === 0 && socialMatches.length === 0 && (
+                    <Text variant="muted" className="text-sm">
+                      No links match &quot;{linkSearch}&quot;.
+                    </Text>
+                  )}
+                </>
+              );
+            })()}
+
+            <Text variant="large" className="mt-2">
+              Custom links
+            </Text>
+            {customLinks.map((draft) => (
+              <Card key={draft.id} className="gap-2">
+                <Field label="Label">
+                  <View className="flex-row items-center gap-2">
+                    <Input
+                      placeholder="e.g. Portfolio"
+                      value={draft.label}
+                      onChangeText={(v) =>
+                        setCustomLinks((prev) =>
+                          prev.map((d) => (d.id === draft.id ? { ...d, label: v } : d)),
+                        )
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      icon="trash-outline"
+                      onPress={() => {
+                        if (draft.savedId) {
+                          setRemovedCustomLinkIds((prev) => [...prev, draft.savedId!]);
+                        }
+                        setCustomLinks((prev) => prev.filter((d) => d.id !== draft.id));
+                      }}
+                    />
+                  </View>
+                </Field>
+                <Field label="URL">
+                  <Input
+                    placeholder="yoursite.com/page"
+                    value={draft.value}
+                    onChangeText={(v) =>
+                      setCustomLinks((prev) =>
+                        prev.map((d) => (d.id === draft.id ? { ...d, value: v } : d)),
+                      )
+                    }
+                    autoCapitalize="none"
+                  />
+                </Field>
+              </Card>
+            ))}
+            <Button
+              variant="secondary"
+              icon="add-circle-outline"
+              onPress={() =>
+                setCustomLinks((prev) => [
+                  ...prev,
+                  { id: `new-${customLinkSeq.current++}`, label: "", value: "" },
+                ])
+              }
+            >
+              Add custom link
+            </Button>
+          </>
+        )}
+      </ScrollView>
+
+      <View className="gap-2 px-6 pb-8 pt-2">
         {submitError && (
           <View className="flex-row items-center gap-1.5">
-            <Ionicons name="alert-circle" size={16} color="#dc2626" />
+            <Ionicons name="alert-circle" size={16} color={colors.danger} />
             <Text className="text-sm text-danger">{submitError}</Text>
           </View>
         )}
@@ -355,28 +632,32 @@ export default function EditProfileScreen() {
             iconPosition="right"
             onPress={handleSave}
             loading={submitting}
-            disabled={!displayName.trim() || (username !== originalUsername && usernameStatus !== "available")}
+            disabled={!firstName.trim() || (username !== originalUsername && usernameStatus !== "available")}
             className="flex-1"
           >
             Save
           </Button>
         </View>
+      </View>
 
-        <BottomSheet visible={photoSheetOpen} onClose={() => setPhotoSheetOpen(false)}>
-          <View className="gap-2">
-            <Button variant="secondary" icon="camera-outline" onPress={() => pickImage("camera")}>
-              Take Photo
-            </Button>
-            <Button
-              variant="secondary"
-              icon="images-outline"
-              onPress={() => pickImage("library")}
-            >
-              Choose from Library
-            </Button>
-          </View>
-        </BottomSheet>
-      </ScrollView>
+      <BottomSheet visible={photoSheetTarget !== null} onClose={() => setPhotoSheetTarget(null)}>
+        <View className="gap-2">
+          <Button
+            variant="secondary"
+            icon="camera-outline"
+            onPress={() => pickImage("camera", photoSheetTarget ?? "avatar")}
+          >
+            Take Photo
+          </Button>
+          <Button
+            variant="secondary"
+            icon="images-outline"
+            onPress={() => pickImage("library", photoSheetTarget ?? "avatar")}
+          >
+            Choose from Library
+          </Button>
+        </View>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
