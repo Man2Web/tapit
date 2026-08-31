@@ -12,8 +12,8 @@ export type ProfileTheme = {
 
 export const defaultTheme: ProfileTheme = {
   template: "classic",
-  primary: "#4f46e5",
-  accent: "#6366f1",
+  primary: "#7C2FD6",
+  accent: "#9550E8",
   font: "system",
   layout: "stacked",
 };

@@ -1,4 +1,5 @@
 import { Text, TextClassContext } from '@/components/ui/text';
+import { colors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Ionicons } from '@expo/vector-icons';
@@ -102,12 +103,12 @@ type ButtonProps = React.ComponentProps<typeof Pressable> &
   };
 
 const contentColor: Record<NonNullable<VariantProps<typeof buttonVariants>['variant']>, string> = {
-  default: '#ffffff',
-  destructive: '#ffffff',
-  outline: '#0a0a0a',
-  secondary: '#0a0a0a',
-  ghost: '#0a0a0a',
-  link: '#4f46e5',
+  default: colors.card,
+  destructive: colors.card,
+  outline: colors.foreground,
+  secondary: colors.foreground,
+  ghost: colors.foreground,
+  link: colors.primary,
 };
 
 function Button({

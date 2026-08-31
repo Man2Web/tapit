@@ -12,16 +12,20 @@ export const tokens = {
 
   radius: { sm: 6, md: 10, lg: 16, xl: 24, full: 9999 },
 
-  // Placeholder brand ramp — replace with real values before Phase 1 UI work.
+  // Brand ramp — a deep, saturated violet, deliberately not the generic Tailwind-indigo
+  // default this replaced (#4f46e5 et al. — the exact stock `indigo` scale, which is what
+  // made every screen read as "another SaaS template" rather than a considered brand).
+  // Still a placeholder pending a real brand name/logo (see docs/DECISIONS.md), but a
+  // considered color choice rather than a scaffold default.
   color: {
     brand: {
-      50: "#f2f5ff",
-      100: "#e0e7ff",
-      300: "#a5b4fc",
-      500: "#6366f1",
-      600: "#4f46e5",
-      700: "#4338ca",
-      900: "#312e81",
+      50: "#F6F1FE",
+      100: "#EBDFFC",
+      300: "#C6A0F5",
+      500: "#9550E8",
+      600: "#7C2FD6",
+      700: "#631FAD",
+      900: "#3A0F68",
     },
     neutral: {
       0: "#ffffff",
