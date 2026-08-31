@@ -22,10 +22,10 @@ export function SaveContactButton({ username, displayName }: { username: string;
       <a
         href={vcardUrl}
         onClick={handleClick}
-        className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium text-white"
+        className="flex w-full items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-base font-semibold text-white shadow-lg transition-all hover:opacity-95 active:scale-[0.98]"
         style={{ backgroundColor: "var(--brand-color)" }}
       >
-        <IoPersonAddOutline size={18} />
+        <IoPersonAddOutline size={20} />
         Save Contact
       </a>
       <ShareInfoSheet
