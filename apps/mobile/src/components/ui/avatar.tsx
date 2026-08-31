@@ -25,7 +25,10 @@ export function Avatar({
 }: AvatarProps) {
   const Container = onPress ? Pressable : View;
   const radius = size / 2;
-  const shift = (offsetY / 100) * (size * 0.4);
+  // scale 1.35 provides extra image buffer at the top and bottom so shifting offsetY
+  // never exposes empty background gaps inside the circle.
+  const scale = offsetY !== 0 ? 1.35 : 1.15;
+  const shift = (offsetY / 100) * (size * 0.25);
 
   return (
     <Container
@@ -41,7 +44,7 @@ export function Avatar({
             width: size,
             height: size,
             borderRadius: radius,
-            transform: [{ translateY: shift }],
+            transform: [{ scale }, { translateY: shift }],
           }}
           resizeMode="cover"
         />
