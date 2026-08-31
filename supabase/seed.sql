@@ -1,11 +1,25 @@
--- Dev seed data for Manikandan AG (username: themanikandanag)
--- Run in Supabase SQL Editor to provision the seed profile.
+-- Create Auth User with password 'Man2web@2026' and link to profiles 'themanikandanag' & 'themanikandan'
+-- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/fzxgikhutdptltvcruej/sql/new
 
-insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, aud, role)
+-- 1. Create or update auth.users with bcrypt hashed password 'Man2web@2026'
+insert into auth.users (
+  id,
+  instance_id,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  aud,
+  role
+)
 values (
   '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000000',
   'm2wtechnologies@gmail.com',
-  '',
+  extensions.crypt('Man2web@2026', extensions.gen_salt('bf')),
   now(),
   now(),
   now(),
@@ -14,12 +28,16 @@ values (
   'authenticated',
   'authenticated'
 )
-on conflict (id) do nothing;
+on conflict (id) do update set
+  encrypted_password = extensions.crypt('Man2web@2026', extensions.gen_salt('bf')),
+  email_confirmed_at = coalesce(auth.users.email_confirmed_at, now());
 
+-- 2. Create or update public.user_profiles
 insert into public.user_profiles (id, full_name, email, plan, onboarding_done)
 values ('00000000-0000-0000-0000-000000000001', 'Manikandan AG', 'm2wtechnologies@gmail.com', 'pro', true)
-on conflict (id) do update set full_name = 'Manikandan AG', onboarding_done = true;
+on conflict (id) do update set full_name = 'Manikandan AG', email = 'm2wtechnologies@gmail.com', onboarding_done = true;
 
+-- 3. Create or update profile 'themanikandanag'
 insert into public.profiles (
   id,
   owner_id,
@@ -52,8 +70,44 @@ on conflict (username) do update set
   company = excluded.company,
   bio = excluded.bio;
 
+-- 4. Create or update alias profile 'themanikandan'
+insert into public.profiles (
+  id,
+  owner_id,
+  username,
+  display_name,
+  first_name,
+  last_name,
+  designation,
+  company,
+  bio,
+  is_primary,
+  is_active
+)
+values (
+  '00000000-0000-0000-0000-0000000000a2',
+  '00000000-0000-0000-0000-000000000001',
+  'themanikandan',
+  'Manikandan AG',
+  'Manikandan',
+  'AG',
+  'Co-founder',
+  'Man2web Technologies',
+  'Co-founder of Man2web Technologies. Digital visiting card, one tap away.',
+  false,
+  true
+)
+on conflict (username) do update set
+  display_name = excluded.display_name,
+  designation = excluded.designation,
+  company = excluded.company,
+  bio = excluded.bio;
+
+-- 5. Add Profile Links
 insert into public.profile_links (profile_id, kind, platform, label, value, position)
 values
   ('00000000-0000-0000-0000-0000000000a1', 'website', null, 'Website', 'https://man2web.in', 0),
-  ('00000000-0000-0000-0000-0000000000a1', 'email', null, 'Email', 'mailto:m2wtechnologies@gmail.com', 1)
+  ('00000000-0000-0000-0000-0000000000a1', 'email', null, 'Email', 'mailto:m2wtechnologies@gmail.com', 1),
+  ('00000000-0000-0000-0000-0000000000a2', 'website', null, 'Website', 'https://man2web.in', 0),
+  ('00000000-0000-0000-0000-0000000000a2', 'email', null, 'Email', 'mailto:m2wtechnologies@gmail.com', 1)
 on conflict do nothing;
