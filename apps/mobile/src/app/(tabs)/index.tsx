@@ -27,7 +27,7 @@ type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
 // `source` lets the public page's view-tracker attribute the visit correctly — only the QR
 // code should be tagged "qr"; the Share button hands out the plain link.
 function cardUrl(username: string, source?: "qr") {
-  const base = `https://tapit.in/u/${username}`;
+  const base = `https://tapit.man2web.in/u/${username}`;
   return source ? `${base}?source=${source}` : base;
 }
 
@@ -168,7 +168,7 @@ export default function CardScreen() {
           accessibilityRole="link"
           className="mt-2 w-full rounded-md border border-border px-4 py-2 text-center text-sm text-muted-foreground underline"
         >
-          tapit.in/u/{profile.username}
+          tapit.man2web.in/u/{profile.username}
         </Text>
 
         {links.length > 0 ? (

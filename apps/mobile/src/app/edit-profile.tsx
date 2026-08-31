@@ -467,7 +467,7 @@ export default function EditProfileScreen() {
 
             <Field label="Profile link">
               <View className="flex-row items-center rounded-md border border-border px-4 py-3">
-                <Text className="text-muted-foreground">tapit.in/u/</Text>
+                <Text className="text-muted-foreground">tapit.man2web.in/u/</Text>
                 <Input
                   value={username}
                   onChangeText={(v) => setUsername(v.toLowerCase())}
