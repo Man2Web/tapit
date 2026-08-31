@@ -19,9 +19,9 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
           onPress={onClose}
           accessibilityRole="button"
         />
-        <SafeAreaView edges={["bottom"]} className="rounded-t-xl bg-white">
+        <SafeAreaView edges={["bottom"]} className="rounded-t-xl bg-background">
           <View className="items-center pt-2">
-            <View className="h-1 w-10 rounded-full bg-neutral-200" />
+            <View className="h-1 w-10 rounded-full bg-border" />
           </View>
           <View className="p-4">{children}</View>
         </SafeAreaView>
