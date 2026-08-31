@@ -209,17 +209,21 @@ create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public, pg_catalog
 as $$
 begin
-  insert into public.user_profiles (id, full_name, email, avatar_url)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
-    new.email,
-    coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture')
-  )
-  on conflict (id) do nothing;
+  begin
+    insert into public.user_profiles (id, full_name, email, avatar_url)
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
+      new.email,
+      coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture')
+    )
+    on conflict (id) do nothing;
+  exception when others then
+    -- Exception block ensures user creation in auth.users never fails
+  end;
   return new;
 end;
 $$;
