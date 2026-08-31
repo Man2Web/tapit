@@ -9,7 +9,9 @@ export async function GET(request: Request, { params }: Props) {
   const { username } = await params;
   const { origin } = new URL(request.url);
 
-  const buffer = await QRCode.toBuffer(`${origin}/u/${username}`, {
+  // ?source=qr lets the profile page's view-tracker attribute this visit correctly —
+  // scanning this image is the only way a viewer reaches the page through this exact URL.
+  const buffer = await QRCode.toBuffer(`${origin}/u/${username}?source=qr`, {
     width: 512,
     margin: 1,
   });
