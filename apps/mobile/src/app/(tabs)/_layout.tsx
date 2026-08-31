@@ -1,6 +1,7 @@
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth-context";
+import { colors } from "@/lib/colors";
 
 export default function TabsLayout() {
   const { session, hasProfile } = useAuth();
@@ -16,25 +17,43 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#4f46e5",
-        tabBarInactiveTintColor: "#9ca3af",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Card",
+          title: "Home",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "card" : "card-outline"} color={color} size={size} />
+            <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="shop"
+        options={{
+          title: "Shop",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "storefront" : "storefront-outline"} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="insights"
+        options={{
+          title: "Insights",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "bar-chart" : "bar-chart-outline"} color={color} size={size} />
           ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings",
+          title: "Menu",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "settings" : "settings-outline"} color={color} size={size} />
+            <Ionicons name={focused ? "menu" : "menu-outline"} color={color} size={size} />
           ),
         }}
       />
