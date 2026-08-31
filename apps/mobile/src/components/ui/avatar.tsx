@@ -16,15 +16,20 @@ type AvatarProps = {
 // three near-identical hand-rolled `Image` + fallback `View`/`Ionicons` blocks before this.
 export function Avatar({ uri, size = 96, fallbackIcon = "person", onPress, className }: AvatarProps) {
   const Container = onPress ? Pressable : View;
+  const radius = size / 2;
   return (
     <Container
       onPress={onPress}
       accessibilityRole={onPress ? "button" : undefined}
-      className={cn("items-center justify-center overflow-hidden rounded-full bg-muted", className)}
-      style={{ width: size, height: size }}
+      className={cn("items-center justify-center overflow-hidden bg-muted", className)}
+      style={{ width: size, height: size, borderRadius: radius }}
     >
       {uri ? (
-        <Image source={{ uri }} style={{ width: size, height: size }} />
+        <Image
+          source={{ uri }}
+          style={{ width: size, height: size, borderRadius: radius }}
+          resizeMode="cover"
+        />
       ) : (
         <Ionicons name={fallbackIcon} size={size * 0.375} color={colors.muted} />
       )}
