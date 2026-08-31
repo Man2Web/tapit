@@ -8,6 +8,10 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:mobile": "pnpm --filter @tapit/mobile dev",
+    "dev:web": "pnpm --filter @tapit/web dev",
+    "mobile": "pnpm --filter @tapit/mobile dev",
+    "web": "pnpm --filter @tapit/web dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "gen:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > packages/types/src/supabase.ts"

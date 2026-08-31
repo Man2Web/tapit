@@ -5,9 +5,14 @@ import type { Database } from "@tapit/types";
 
 // AsyncStorage, not SecureStore: GoTrue's persisted session (access + refresh token +
 // user metadata) regularly exceeds SecureStore's 2048-byte per-key limit.
+const supabaseUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+const supabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key";
+
 export const supabase = createClient<Database>(
-  process.env.EXPO_PUBLIC_SUPABASE_URL!,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       storage: AsyncStorage,

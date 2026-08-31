@@ -57,6 +57,7 @@ export function ShareInfoSheet({ open, username, displayName, vcardUrl, onClose 
   // everywhere, and a click anywhere above it did nothing. `mounted` guards against
   // `document` not existing during SSR.
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   // The vCard download and the lead submission both fire from here, inside a real click
