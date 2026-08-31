@@ -2,20 +2,26 @@ import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { STARTER_LINKS, suggestUsername, type StarterLinkDef } from "@tapit/core";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ListRow } from "@/components/ui/list-row";
+import { Switch } from "@/components/ui/switch";
+import { Text } from "@/components/ui/text";
+import { UsernameStatus as UsernameStatusIndicator } from "@/components/ui/username-status";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useAuth } from "@/lib/auth-context";
+import { colors } from "@/lib/colors";
 import { supabase } from "@/lib/supabase";
 
-type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
+type UsernameCheckStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 export default function OnboardingScreen() {
   const { session, refreshProfile } = useAuth();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
 
   const [displayName, setDisplayName] = useState("");
   const [designation, setDesignation] = useState("");
@@ -27,7 +33,7 @@ export default function OnboardingScreen() {
 
   const [username, setUsername] = useState("");
   const [usernameTouched, setUsernameTouched] = useState(false);
-  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
+  const [usernameStatus, setUsernameStatus] = useState<UsernameCheckStatus>("idle");
   const [usernameReason, setUsernameReason] = useState<string | null>(null);
 
   const [enabledLinks, setEnabledLinks] = useState<Record<string, boolean>>({});
@@ -150,7 +156,13 @@ export default function OnboardingScreen() {
       .map((l) => {
         const raw = linkValues[l.key];
         if (!raw?.trim()) return null;
-        return { kind: l.kind, platform: l.platform ?? null, label: l.label, value: l.formatValue(raw) };
+        return {
+          kind: l.kind,
+          platform: l.platform ?? null,
+          label: l.label,
+          value: l.formatValue(raw),
+          icon: l.icon,
+        };
       })
       .filter((l): l is NonNullable<typeof l> => l !== null);
 
@@ -171,13 +183,42 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView contentContainerClassName="gap-4 px-6 py-8" keyboardShouldPersistTaps="handled">
-        <Text className="text-center text-xs font-medium text-neutral-400">Step {step} of 4</Text>
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView contentContainerClassName="gap-4 px-6 pt-12 pb-8" keyboardShouldPersistTaps="handled">
+        {step > 0 && (
+          <Text className="text-center text-xs font-medium text-muted-foreground">
+            Step {step} of 4
+          </Text>
+        )}
+
+        {step === 0 && (
+          <View className="flex-1 items-center justify-center gap-4 py-12">
+            <View className="h-20 w-20 items-center justify-center rounded-full bg-primary">
+              <Ionicons name="card" size={36} color={colors.card} />
+            </View>
+            <View className="items-center gap-1.5">
+              <Text variant="h3">Welcome to TapIt</Text>
+              <Text variant="muted" className="text-center">
+                Your digital visiting card. Set it up once, share it forever — by link, QR, or
+                a tap.
+              </Text>
+            </View>
+            <Button
+              icon="chevron-forward"
+              iconPosition="right"
+              onPress={() => setStep(1)}
+              className="mt-4 w-full"
+            >
+              Get Started
+            </Button>
+          </View>
+        )}
 
         {step === 1 && (
           <View className="gap-3">
-            <Text className="text-center text-xl font-semibold">Tell us about you</Text>
+            <Text variant="h3" className="text-center">
+              Tell us about you
+            </Text>
             <Input placeholder="Full name" value={displayName} onChangeText={setDisplayName} autoFocus />
             <Input
               placeholder="Job Title (e.g. Realtor)"
@@ -207,15 +248,11 @@ export default function OnboardingScreen() {
 
         {step === 2 && (
           <View className="items-center gap-4">
-            <Text className="text-center text-xl font-semibold">Add a photo</Text>
+            <Text variant="h3" className="text-center">
+              Add a photo
+            </Text>
             <Pressable onPress={() => setPhotoSheetOpen(true)}>
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} className="h-24 w-24 rounded-full" />
-              ) : (
-                <View className="h-24 w-24 items-center justify-center rounded-full bg-neutral-100">
-                  <Ionicons name="camera-outline" size={28} color="#9ca3af" />
-                </View>
-              )}
+              <Avatar uri={avatarUri} size={96} fallbackIcon="camera-outline" />
             </Pressable>
             <View className="w-full flex-row gap-3">
               <Button
@@ -255,10 +292,12 @@ export default function OnboardingScreen() {
 
         {step === 3 && (
           <View className="gap-3">
-            <Text className="text-center text-xl font-semibold">Pick your link</Text>
-            <Text className="text-sm font-medium text-neutral-700">Profile link</Text>
-            <View className="flex-row items-center rounded-md border border-neutral-200 px-4 py-3">
-              <Text className="text-neutral-400">tapit.in/u/</Text>
+            <Text variant="h3" className="text-center">
+              Pick your link
+            </Text>
+            <Text className="text-sm font-medium text-foreground">Profile link</Text>
+            <View className="flex-row items-center rounded-md border border-border px-4 py-3">
+              <Text className="text-muted-foreground">tapit.in/u/</Text>
               <Input
                 value={username}
                 onChangeText={(v) => {
@@ -269,25 +308,7 @@ export default function OnboardingScreen() {
                 className="flex-1 border-0 p-0"
               />
             </View>
-            {usernameStatus !== "idle" && (
-              <View className="flex-row items-center gap-1.5">
-                {usernameStatus === "checking" && (
-                  <Text className="text-sm text-neutral-600">Checking…</Text>
-                )}
-                {usernameStatus === "available" && (
-                  <>
-                    <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
-                    <Text className="text-sm text-success">Available</Text>
-                  </>
-                )}
-                {(usernameStatus === "taken" || usernameStatus === "invalid") && (
-                  <>
-                    <Ionicons name="alert-circle" size={16} color="#dc2626" />
-                    <Text className="text-sm text-danger">{usernameReason}</Text>
-                  </>
-                )}
-              </View>
-            )}
+            <UsernameStatusIndicator status={usernameStatus} reason={usernameReason} />
             <View className="flex-row gap-3">
               <Button
                 variant="secondary"
@@ -312,38 +333,42 @@ export default function OnboardingScreen() {
 
         {step === 4 && (
           <View className="gap-3">
-            <Text className="text-center text-xl font-semibold">Add your links</Text>
+            <Text variant="h3" className="text-center">
+              Add your links
+            </Text>
             {STARTER_LINKS.map((link: StarterLinkDef) => (
-              <View key={link.key} className="rounded-md border border-neutral-200 p-3">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center gap-2">
-                    <Ionicons
-                      name={link.icon as ComponentProps<typeof Ionicons>["name"]}
-                      size={20}
-                      color="#4b5563"
-                    />
-                    <Text className="font-medium">{link.label}</Text>
-                  </View>
+              <ListRow
+                key={link.key}
+                leading={
+                  <Ionicons
+                    name={link.icon as ComponentProps<typeof Ionicons>["name"]}
+                    size={20}
+                    color={colors.mutedForeground}
+                  />
+                }
+                title={link.label}
+                trailing={
                   <Switch
                     value={!!enabledLinks[link.key]}
                     onValueChange={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
                   />
-                </View>
-                {enabledLinks[link.key] && (
-                  <Input
-                    placeholder={link.placeholder}
-                    value={linkValues[link.key] ?? ""}
-                    onChangeText={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
-                    autoCapitalize="none"
-                    className="mt-2"
-                  />
-                )}
-              </View>
+                }
+                footer={
+                  enabledLinks[link.key] ? (
+                    <Input
+                      placeholder={link.placeholder}
+                      value={linkValues[link.key] ?? ""}
+                      onChangeText={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
+                      autoCapitalize="none"
+                    />
+                  ) : undefined
+                }
+              />
             ))}
 
             {submitError && (
               <View className="flex-row items-center gap-1.5">
-                <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                <Ionicons name="alert-circle" size={16} color={colors.danger} />
                 <Text className="text-sm text-danger">{submitError}</Text>
               </View>
             )}
