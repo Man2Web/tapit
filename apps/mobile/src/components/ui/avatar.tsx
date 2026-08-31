@@ -10,24 +10,39 @@ type AvatarProps = {
   fallbackIcon?: ComponentProps<typeof Ionicons>["name"];
   onPress?: () => void;
   className?: string;
+  offsetY?: number;
 };
 
-// House pattern: the photo circle used on onboarding, edit-profile, and the Card tab — was
-// three near-identical hand-rolled `Image` + fallback `View`/`Ionicons` blocks before this.
-export function Avatar({ uri, size = 96, fallbackIcon = "person", onPress, className }: AvatarProps) {
+// House pattern: the photo circle used on onboarding, edit-profile, and the Card tab — supports
+// optional `offsetY` (-50 to 50) so users can manually adjust vertical photo alignment.
+export function Avatar({
+  uri,
+  size = 96,
+  fallbackIcon = "person",
+  onPress,
+  className,
+  offsetY = 0,
+}: AvatarProps) {
   const Container = onPress ? Pressable : View;
   const radius = size / 2;
+  const shift = (offsetY / 100) * (size * 0.4);
+
   return (
     <Container
       onPress={onPress}
       accessibilityRole={onPress ? "button" : undefined}
-      className={cn("items-center justify-center overflow-hidden bg-muted", className)}
+      className={cn("items-center justify-center overflow-hidden bg-muted relative", className)}
       style={{ width: size, height: size, borderRadius: radius }}
     >
       {uri ? (
         <Image
           source={{ uri }}
-          style={{ width: size, height: size, borderRadius: radius }}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: radius,
+            transform: [{ translateY: shift }],
+          }}
           resizeMode="cover"
         />
       ) : (

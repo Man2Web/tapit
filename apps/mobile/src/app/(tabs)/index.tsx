@@ -141,7 +141,11 @@ export default function CardScreen() {
       >
         <View className="w-full flex-row items-start gap-4">
           <View className="flex-1 items-start gap-1">
-            <Avatar uri={profile.avatar_url} size={72} />
+            <Avatar
+              uri={profile.avatar_url}
+              size={72}
+              offsetY={typeof (profile.theme as Record<string, unknown> | null)?.avatar_offset_y === "number" ? ((profile.theme as Record<string, unknown>).avatar_offset_y as number) : 0}
+            />
             <Text variant="h4" className="mt-2">
               {profile.display_name}
             </Text>

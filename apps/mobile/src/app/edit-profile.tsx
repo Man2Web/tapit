@@ -96,6 +96,7 @@ export default function EditProfileScreen() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
+  const [avatarOffsetY, setAvatarOffsetY] = useState<number>(0);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
   const [photoSheetTarget, setPhotoSheetTarget] = useState<PhotoTarget | null>(null);
@@ -144,9 +145,10 @@ export default function EditProfileScreen() {
       }
 
       setProfile(profileData);
-      // Existing cards only ever had a single `display_name` — best-effort split it into
-      // first/last on first edit rather than showing blank fields; from then on the stored
-      // first_name/last_name (set on every save below) take over as the source of truth.
+      const themeObj = (profileData.theme ?? {}) as Record<string, unknown>;
+      if (typeof themeObj.avatar_offset_y === "number") {
+        setAvatarOffsetY(themeObj.avatar_offset_y);
+      }
       const [firstFromName, ...restFromName] = profileData.display_name.trim().split(/\s+/);
       setFirstName(profileData.first_name ?? firstFromName ?? "");
       setLastName(profileData.last_name ?? restFromName.join(" "));
@@ -275,6 +277,9 @@ export default function EditProfileScreen() {
     const newLogoUrl = await uploadImageIfChanged(newLogoUri, "logos", logoUrl);
     const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
+    const existingTheme = (profile.theme ?? {}) as Record<string, unknown>;
+    const updatedTheme = { ...existingTheme, avatar_offset_y: avatarOffsetY };
+
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
@@ -290,6 +295,7 @@ export default function EditProfileScreen() {
         bio: bio.trim() || null,
         avatar_url: newAvatarUrl,
         logo_url: newLogoUrl,
+        theme: updatedTheme,
       })
       .eq("id", profile.id);
 
@@ -407,13 +413,46 @@ export default function EditProfileScreen() {
       >
         {tab === "display" && (
           <>
-            <View className="items-center gap-2">
+            <View className="items-center gap-3">
               <Pressable onPress={() => setPhotoSheetTarget("avatar")}>
-                <Avatar uri={newAvatarUri ?? avatarUrl} size={96} />
+                <Avatar uri={newAvatarUri ?? avatarUrl} size={96} offsetY={avatarOffsetY} />
               </Pressable>
               <Text variant="muted" className="text-sm">
                 Change photo
               </Text>
+
+              {(newAvatarUri || avatarUrl) && (
+                <View className="mt-1 w-full max-w-xs items-center gap-2 rounded-xl border border-border bg-card p-3 shadow-sm">
+                  <Text className="text-xs font-semibold text-foreground">
+                    Adjust Photo Alignment
+                  </Text>
+                  <View className="flex-row items-center justify-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon="arrow-up"
+                      onPress={() => setAvatarOffsetY((prev) => Math.max(-50, prev - 10))}
+                    >
+                      Up
+                    </Button>
+                    <Button
+                      variant={avatarOffsetY === 0 ? "default" : "ghost"}
+                      size="sm"
+                      onPress={() => setAvatarOffsetY(0)}
+                    >
+                      Center
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon="arrow-down"
+                      onPress={() => setAvatarOffsetY((prev) => Math.min(50, prev + 10))}
+                    >
+                      Down
+                    </Button>
+                  </View>
+                </View>
+              )}
             </View>
 
             <View className="items-center gap-2">

@@ -58,6 +58,16 @@ export default async function PublicProfilePage({ params }: Props) {
               src={profile.avatar_url}
               alt={profile.display_name}
               className="h-full w-full object-cover"
+              style={{
+                objectPosition: `50% ${
+                  profile.theme &&
+                  typeof profile.theme === "object" &&
+                  "avatar_offset_y" in profile.theme &&
+                  typeof profile.theme.avatar_offset_y === "number"
+                    ? Math.min(100, Math.max(0, 50 + profile.theme.avatar_offset_y))
+                    : 25
+                }%`,
+              }}
             />
           )}
           <svg
