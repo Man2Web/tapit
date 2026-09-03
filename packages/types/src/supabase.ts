@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -16,30 +16,42 @@ export type Database = {
     Tables: {
       leads: {
         Row: {
+          company: string | null
           created_at: string
+          designation: string | null
           email: string | null
           id: string
+          meta: Json | null
           name: string | null
+          notes: string | null
           phone: string | null
           profile_id: string
           source: string
           status: string
         }
         Insert: {
+          company?: string | null
           created_at?: string
+          designation?: string | null
           email?: string | null
           id?: string
+          meta?: Json | null
           name?: string | null
+          notes?: string | null
           phone?: string | null
           profile_id: string
           source?: string
           status?: string
         }
         Update: {
+          company?: string | null
           created_at?: string
+          designation?: string | null
           email?: string | null
           id?: string
+          meta?: Json | null
           name?: string | null
+          notes?: string | null
           phone?: string | null
           profile_id?: string
           source?: string
@@ -294,9 +306,13 @@ export type Database = {
       }
       submit_lead: {
         Args: {
+          p_company?: string
+          p_designation?: string
           p_email?: string
           p_name?: string
+          p_notes?: string
           p_phone?: string
+          p_source?: string
           p_username: string
         }
         Returns: undefined

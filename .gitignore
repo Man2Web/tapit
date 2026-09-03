@@ -24,8 +24,13 @@ Thumbs.db
 # local Claude Code harness state
 /.claude/
 
-# EAS
+# EAS & Certificates
+certs/
 *.p12
+*.pem
+*.key
+*.csr
+*.cer
 *.mobileprovision
 *.jks
 *.keystore

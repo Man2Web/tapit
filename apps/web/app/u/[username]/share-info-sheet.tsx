@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent, type ComponentType } from "react";
 import { createPortal } from "react-dom";
-import { IoCallOutline, IoMailOutline, IoPersonOutline } from "react-icons/io5";
+import { IoBriefcaseOutline, IoCallOutline, IoChatboxOutline, IoMailOutline, IoPersonOutline } from "react-icons/io5";
 import { createClient } from "@/lib/supabase/browser";
 
 type ShareInfoSheetProps = {
@@ -40,32 +40,19 @@ function IconField({
   );
 }
 
-// The "Exchange Details" flow (PRODUCT.md §7.2): before the vCard actually downloads, offer
-// the receiver a chance to share their own info back with the card owner. Skip or Share both
-// still complete the download — this is an optional add-on to "Save Contact", not a gate.
+// Two-way Contact Exchange Sheet (PRODUCT.md §7.2): before the vCard downloads, allow the receiver
+// to share their contact details (name, email, phone, company, notes) with the card owner.
 export function ShareInfoSheet({ open, username, displayName, vcardUrl, onClose }: ShareInfoSheetProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [company, setCompany] = useState("");
+  const [notes, setNotes] = useState("");
 
-  // Portal to document.body rather than rendering in place: this component is a DOM
-  // descendant of the fixed bottom bar, which has `backdrop-blur` on it — any ancestor with
-  // backdrop-filter/filter/transform creates a new containing block for `position: fixed`
-  // descendants, so without the portal this sheet's "fixed inset-0" backdrop was scoped to
-  // that small bar's own box instead of the viewport (confirmed via getBoundingClientRect
-  // live: a ~72px-tall rect pinned to the bottom, not the full screen) — invisible almost
-  // everywhere, and a click anywhere above it did nothing. `mounted` guards against
-  // `document` not existing during SSR.
   const [mounted, setMounted] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
-  // The vCard download and the lead submission both fire from here, inside a real click
-  // handler (Skip/Share), not from the original "Save Contact" click — a JS-driven download
-  // outside a direct user gesture is exactly what save-contact-button.tsx's own comment warns
-  // iOS Safari mishandles. Fire-and-forget RPCs (not awaited) keep `window.location.href`
-  // synchronous within the gesture. Tapping the backdrop is a plain dismiss (onClose only) —
-  // no download, since the user didn't ask for the card, just to close the sheet.
   function proceedToDownload() {
     createClient()
       .rpc("log_profile_event", { p_username: username, p_event: "vcard_save" })
@@ -78,9 +65,17 @@ export function ShareInfoSheet({ open, username, displayName, vcardUrl, onClose 
   }
 
   function handleShare() {
-    if (name.trim() || email.trim() || phone.trim()) {
+    if (name.trim() || email.trim() || phone.trim() || company.trim()) {
       createClient()
-        .rpc("submit_lead", { p_username: username, p_name: name, p_phone: phone, p_email: email })
+        .rpc("submit_lead", {
+          p_username: username,
+          p_name: name,
+          p_phone: phone,
+          p_email: email,
+          p_company: company,
+          p_notes: notes,
+          p_source: "form",
+        })
         .then(
           () => {},
           () => {},
@@ -93,10 +88,6 @@ export function ShareInfoSheet({ open, username, displayName, vcardUrl, onClose 
 
   return createPortal(
     <>
-      {/* backdrop-blur is what actually shows the "difference" between the sheet and the
-          page behind it — a plain darkened overlay alone reads as flat, this reads as focus.
-          Pushed noticeably stronger than a typical iOS-style sheet backdrop (blur-sm/30 was
-          too subtle to register at a glance) — blur-lg + 55% darken reads unmistakably. */}
       <div
         className={`fixed inset-0 z-40 bg-neutral-950/55 backdrop-blur-lg transition-opacity duration-300 ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
@@ -105,7 +96,7 @@ export function ShareInfoSheet({ open, username, displayName, vcardUrl, onClose 
         aria-hidden="true"
       />
       <div
-        className={`fixed inset-x-0 bottom-0 z-50 flex h-[50dvh] flex-col rounded-t-2xl bg-white px-6 pb-6 pt-3 shadow-2xl transition-transform duration-300 ${
+        className={`fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col overflow-y-auto rounded-t-3xl bg-white px-6 pb-6 pt-3 shadow-2xl transition-transform duration-300 ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         role="dialog"
@@ -116,31 +107,33 @@ export function ShareInfoSheet({ open, username, displayName, vcardUrl, onClose 
 
         <div className="mt-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-neutral-900">Share your information</h2>
-            <p className="text-sm text-neutral-500">with {displayName}</p>
+            <h2 className="text-lg font-bold text-neutral-900">Exchange Contacts</h2>
+            <p className="text-xs text-neutral-500">Share your details back with {displayName}</p>
           </div>
           <button
             type="button"
             onClick={proceedToDownload}
-            className="shrink-0 rounded-full bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-200"
+            className="shrink-0 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
           >
-            Skip
+            Skip & Download
           </button>
         </div>
 
-        <div className="mt-5 flex flex-1 flex-col gap-3">
-          <IconField icon={IoPersonOutline} type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-          <IconField icon={IoMailOutline} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <IconField icon={IoCallOutline} type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <div className="mt-5 flex flex-1 flex-col gap-2.5">
+          <IconField icon={IoPersonOutline} type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <IconField icon={IoMailOutline} type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <IconField icon={IoCallOutline} type="tel" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <IconField icon={IoBriefcaseOutline} type="text" placeholder="Company / Title" value={company} onChange={(e) => setCompany(e.target.value)} />
+          <IconField icon={IoChatboxOutline} type="text" placeholder="Note or Message (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
         <button
           type="button"
           onClick={handleShare}
-          className="rounded-xl px-4 py-3 text-center font-medium text-white shadow-md transition-transform active:scale-[0.98]"
+          className="mt-5 rounded-xl px-4 py-3.5 text-center text-sm font-semibold text-white shadow-md transition-transform active:scale-[0.98]"
           style={{ backgroundColor: "var(--brand-color)" }}
         >
-          Share
+          Exchange & Save Contact
         </button>
       </div>
     </>,

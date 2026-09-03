@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import type { Database } from "@tapit/types";
 import { Avatar } from "@/components/ui/avatar";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
 import { Text } from "@/components/ui/text";
@@ -39,6 +40,7 @@ export default function CardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [exchangeSheetOpen, setExchangeSheetOpen] = useState(false);
 
   const load = useCallback(
     async (isRefresh: boolean) => {
@@ -177,19 +179,22 @@ export default function CardScreen() {
         </Text>
 
         {links.length > 0 ? (
-          <View className="w-full gap-2">
-            {links.map((link) => (
+          <View className="mt-2 w-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+            {links.map((link, idx) => (
               <ListRow
                 key={link.id}
+                showDivider={idx < links.length - 1}
                 leading={
-                  <Ionicons
-                    name={(link.icon ?? "link-outline") as ComponentProps<typeof Ionicons>["name"]}
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
+                  <View className="h-8 w-8 items-center justify-center rounded-lg bg-accent/80">
+                    <Ionicons
+                      name={(link.icon ?? "link-outline") as ComponentProps<typeof Ionicons>["name"]}
+                      size={18}
+                      color={colors.primary}
+                    />
+                  </View>
                 }
                 title={link.label}
-                trailing={<Ionicons name="open-outline" size={16} color={colors.muted} />}
+                trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
                 onPress={() => Linking.openURL(link.value)}
               />
             ))}
@@ -200,57 +205,70 @@ export default function CardScreen() {
           </Text>
         )}
 
-        <View className="mt-2 w-full flex-row gap-3">
+        <View className="mt-2 w-full flex-col gap-2.5">
           <Button
-            icon="share-social-outline"
-            onPress={handleShare}
-            accessibilityLabel="Share your card"
-            className="flex-1"
+            icon="people-outline"
+            onPress={() => setExchangeSheetOpen(true)}
+            accessibilityLabel="Exchange Contacts"
+            className="w-full py-3 rounded-xl shadow-sm"
           >
-            Share
+            Exchange Contacts
           </Button>
-          <Button
-            variant="secondary"
-            icon="create-outline"
-            onPress={() => router.push("/edit-profile")}
-            accessibilityLabel="Edit your profile"
-            className="flex-1"
-          >
-            Edit Profile
-          </Button>
-        </View>
 
-        {/* Digital Wallet Passes Section */}
-        <View className="mt-3 w-full rounded-2xl border border-border bg-card p-4 gap-3">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="wallet-outline" size={18} color={colors.primary} />
-            <Text className="text-sm font-semibold text-foreground">Digital Wallet Passes</Text>
-          </View>
-          <Text variant="muted" className="text-xs">
-            Save your business card directly to Apple Wallet or Google Wallet for quick offline sharing.
-          </Text>
-          <View className="flex-row gap-3">
+          <View className="w-full flex-row gap-3">
             <Button
               variant="outline"
-              icon="logo-apple"
-              onPress={() => Linking.openURL(`${WEB_BASE_URL}/api/wallet/apple/${profile.username}`)}
-              accessibilityLabel="Add to Apple Wallet"
-              className="flex-1 border-neutral-700 bg-neutral-900"
+              icon="share-social-outline"
+              onPress={handleShare}
+              accessibilityLabel="Share your card"
+              className="flex-1 rounded-xl border-border/80"
             >
-              Apple Wallet
+              Share
             </Button>
             <Button
-              variant="outline"
-              icon="wallet-outline"
-              onPress={() => Linking.openURL(`${WEB_BASE_URL}/api/wallet/google/${profile.username}`)}
-              accessibilityLabel="Add to Google Wallet"
-              className="flex-1 border-neutral-700 bg-neutral-900"
+              variant="secondary"
+              icon="create-outline"
+              onPress={() => router.push("/edit-profile")}
+              accessibilityLabel="Edit your profile"
+              className="flex-1 rounded-xl"
             >
-              Google Wallet
+              Edit Profile
             </Button>
           </View>
         </View>
       </ScrollView>
+
+      {/* Two-Way Contact Exchange Sheet */}
+      <BottomSheet visible={exchangeSheetOpen} onClose={() => setExchangeSheetOpen(false)}>
+        <View className="align-center items-center gap-4 text-center">
+          <Text variant="h4" className="text-center">
+            Exchange Contacts
+          </Text>
+          <Text variant="muted" className="text-center text-xs">
+            Have the other person scan your code to share their details directly back to your contacts list!
+          </Text>
+
+          <View className="items-center justify-center p-4 bg-white rounded-2xl shadow-md border border-neutral-200 my-1">
+            <QRCode value={cardUrl(profile.username, "qr")} size={160} />
+          </View>
+
+          <View className="w-full gap-2.5 pt-2">
+            <Button
+              icon="scan-outline"
+              onPress={() => {
+                setExchangeSheetOpen(false);
+                router.push("/scan-card");
+              }}
+              className="w-full rounded-xl"
+            >
+              Scan Paper Card Instead
+            </Button>
+            <Button variant="secondary" onPress={() => setExchangeSheetOpen(false)} className="w-full rounded-xl">
+              Done
+            </Button>
+          </View>
+        </View>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
