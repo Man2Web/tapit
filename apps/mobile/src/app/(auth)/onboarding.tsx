@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { STARTER_LINKS, suggestUsername, type StarterLinkDef } from "@tapit/core";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar, type AvatarFocusMode } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListRow } from "@/components/ui/list-row";
@@ -13,6 +13,12 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { UsernameStatus as UsernameStatusIndicator } from "@/components/ui/username-status";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import {
+  ProfilePhotoEditor,
+  type AspectMask,
+  type ColorFilter,
+  type PhotoEditorResult,
+} from "@/components/ui/profile-photo-editor";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/lib/colors";
 import { supabase } from "@/lib/supabase";
@@ -29,7 +35,12 @@ export default function OnboardingScreen() {
   const [bio, setBio] = useState("");
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [avatarFocusMode, setAvatarFocusMode] = useState<AvatarFocusMode>("head");
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
+
+  // Full-Screen Photo Editor State
+  const [editorVisible, setEditorVisible] = useState(false);
+  const [editorImageUri, setEditorImageUri] = useState<string | null>(null);
 
   const [username, setUsername] = useState("");
   const [usernameTouched, setUsernameTouched] = useState(false);
@@ -83,17 +94,32 @@ export default function OnboardingScreen() {
 
     const result =
       source === "camera"
-        ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] })
-        : await ImagePicker.launchImageLibraryAsync({
-            quality: 0.8,
-            allowsEditing: true,
-            aspect: [1, 1],
-          });
+        ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: false });
 
     if (!result.canceled && result.assets[0]) {
-      setAvatarUri(result.assets[0].uri);
+      setEditorImageUri(result.assets[0].uri);
+      setEditorVisible(true);
     }
   }
+
+  function handleSaveEditedPhoto(res: PhotoEditorResult) {
+    setAvatarUri(res.imageUri);
+    setAvatarFocusMode(res.focusMode);
+    setAvatarZoom(res.zoom);
+    setAvatarPanX(res.panX);
+    setAvatarPanY(res.panY);
+    setAvatarRotation(res.rotation);
+    setAvatarAspectMask(res.aspectMask ?? "circle");
+    setAvatarColorFilter(res.colorFilter ?? "normal");
+  }
+
+  const [avatarZoom, setAvatarZoom] = useState(1.0);
+  const [avatarPanX, setAvatarPanX] = useState(0);
+  const [avatarPanY, setAvatarPanY] = useState(0);
+  const [avatarRotation, setAvatarRotation] = useState(0);
+  const [avatarAspectMask, setAvatarAspectMask] = useState<AspectMask>("circle");
+  const [avatarColorFilter, setAvatarColorFilter] = useState<ColorFilter>("normal");
 
   async function uploadAvatar(): Promise<string | null> {
     if (!avatarUri || !session) return null;
@@ -131,6 +157,17 @@ export default function OnboardingScreen() {
         company: company || null,
         bio: bio || null,
         avatar_url: avatarUrl,
+        theme: {
+          avatar_focus: avatarFocusMode,
+          avatar_zoom: avatarZoom,
+          avatar_pan_x: avatarPanX,
+          avatar_pan_y: avatarPanY,
+          avatar_rotation: avatarRotation,
+          avatar_aspect_mask: avatarAspectMask,
+          avatar_color_filter: avatarColorFilter,
+          template: "apple_minimal",
+          primary: "#0071E3",
+        } as any,
       })
       .select()
       .single();
@@ -186,7 +223,7 @@ export default function OnboardingScreen() {
 
         {step === 0 && (
           <View className="flex-1 items-center justify-center gap-4 py-12">
-            <View className="h-20 w-20 items-center justify-center rounded-full bg-primary">
+            <View className="h-20 w-20 items-center justify-center rounded-full bg-primary shadow-lg">
               <Ionicons name="card" size={36} color={colors.card} />
             </View>
             <View className="items-center gap-1.5">
@@ -200,7 +237,7 @@ export default function OnboardingScreen() {
               icon="chevron-forward"
               iconPosition="right"
               onPress={() => setStep(1)}
-              className="mt-4 w-full"
+              className="mt-4 w-full rounded-full py-3.5"
             >
               Get Started
             </Button>
@@ -212,27 +249,28 @@ export default function OnboardingScreen() {
             <Text variant="h3" className="text-center">
               Tell us about you
             </Text>
-            <Input placeholder="Full name" value={displayName} onChangeText={setDisplayName} autoFocus />
+            <Input placeholder="Full name" value={displayName} onChangeText={setDisplayName} autoFocus className="rounded-2xl" />
             <Input
               placeholder="Job Title (e.g. Realtor)"
               value={designation}
               onChangeText={setDesignation}
+              className="rounded-2xl"
             />
-            <Input placeholder="Organization Name" value={company} onChangeText={setCompany} />
+            <Input placeholder="Organization Name" value={company} onChangeText={setCompany} className="rounded-2xl" />
             <Input
               placeholder="Bio — a line or two about you"
               value={bio}
               onChangeText={setBio}
               multiline
               numberOfLines={3}
-              className="min-h-20"
+              className="min-h-20 rounded-2xl"
             />
             <Button
               icon="chevron-forward"
               iconPosition="right"
               onPress={() => setStep(2)}
               disabled={!displayName.trim()}
-              className="mt-2"
+              className="mt-2 rounded-full py-3.5"
             >
               Continue
             </Button>
@@ -242,23 +280,51 @@ export default function OnboardingScreen() {
         {step === 2 && (
           <View className="items-center gap-4">
             <Text variant="h3" className="text-center">
-              Add a photo
+              Add your profile photo
             </Text>
             <Pressable onPress={() => setPhotoSheetOpen(true)}>
               <Avatar
                 uri={avatarUri}
-                size={96}
+                size={110}
                 fallbackIcon="camera-outline"
+                focusMode={avatarFocusMode}
                 showEditBadge
               />
             </Pressable>
+
+            <View className="flex-row gap-2.5 w-full pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                icon="camera-outline"
+                onPress={() => setPhotoSheetOpen(true)}
+                className="flex-1 rounded-full border-border/70"
+              >
+                {avatarUri ? "Change Photo" : "Add Photo"}
+              </Button>
+
+              {avatarUri && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon="create-outline"
+                  onPress={() => {
+                    setEditorImageUri(avatarUri);
+                    setEditorVisible(true);
+                  }}
+                  className="flex-1 rounded-full"
+                >
+                  Adjust & Crop
+                </Button>
+              )}
+            </View>
 
             <View className="w-full flex-row gap-3 pt-4">
               <Button
                 variant="secondary"
                 icon="chevron-back"
                 onPress={() => setStep(1)}
-                className="flex-1"
+                className="flex-1 rounded-full"
               >
                 Back
               </Button>
@@ -266,24 +332,62 @@ export default function OnboardingScreen() {
                 icon="chevron-forward"
                 iconPosition="right"
                 onPress={() => setStep(3)}
-                className="flex-1"
+                className="flex-1 rounded-full shadow-sm"
               >
                 {avatarUri ? "Continue" : "Skip for now"}
               </Button>
             </View>
 
             <BottomSheet visible={photoSheetOpen} onClose={() => setPhotoSheetOpen(false)}>
-              <View className="gap-2">
-                <Button variant="secondary" icon="camera-outline" onPress={() => pickImage("camera")}>
-                  Take Photo
+              <View className="gap-2.5 pb-2">
+                <Text variant="h4" className="text-center font-bold">
+                  Add Profile Photo
+                </Text>
+                <Button
+                  variant="outline"
+                  icon="camera-outline"
+                  onPress={() => pickImage("camera")}
+                  className="rounded-full py-3.5 justify-start border-border/70"
+                >
+                  Take Photo with Camera
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   icon="images-outline"
                   onPress={() => pickImage("library")}
+                  className="rounded-full py-3.5 justify-start border-border/70"
                 >
-                  Choose from Library
+                  Choose from Photo Library
                 </Button>
+
+                {avatarUri && (
+                  <Button
+                    variant="outline"
+                    icon="create-outline"
+                    onPress={() => {
+                      setPhotoSheetOpen(false);
+                      setEditorImageUri(avatarUri);
+                      setEditorVisible(true);
+                    }}
+                    className="rounded-full py-3.5 justify-start border-border/70"
+                  >
+                    Edit & Adjust Photo
+                  </Button>
+                )}
+
+                {avatarUri && (
+                  <Button
+                    variant="destructive"
+                    icon="trash-outline"
+                    onPress={() => {
+                      setPhotoSheetOpen(false);
+                      setAvatarUri(null);
+                    }}
+                    className="rounded-full py-3.5 justify-start"
+                  >
+                    Remove Photo
+                  </Button>
+                )}
               </View>
             </BottomSheet>
           </View>
@@ -295,8 +399,8 @@ export default function OnboardingScreen() {
               Pick your link
             </Text>
             <Text className="text-sm font-medium text-foreground">Profile link</Text>
-            <View className="flex-row items-center rounded-md border border-border px-4 py-3">
-              <Text className="text-muted-foreground">tapit.man2web.in/u/</Text>
+            <View className="flex-row items-center rounded-2xl border border-border px-4 py-3 bg-card">
+              <Text className="text-muted-foreground font-medium">tapit.man2web.in/u/</Text>
               <Input
                 value={username}
                 onChangeText={(v) => {
@@ -304,16 +408,16 @@ export default function OnboardingScreen() {
                   setUsername(v.toLowerCase());
                 }}
                 autoCapitalize="none"
-                className="flex-1 border-0 p-0"
+                className="flex-1 border-0 p-0 font-bold text-foreground"
               />
             </View>
             <UsernameStatusIndicator status={usernameStatus} reason={usernameReason} />
-            <View className="flex-row gap-3">
+            <View className="flex-row gap-3 pt-2">
               <Button
                 variant="secondary"
                 icon="chevron-back"
                 onPress={() => setStep(2)}
-                className="flex-1"
+                className="flex-1 rounded-full"
               >
                 Back
               </Button>
@@ -322,7 +426,7 @@ export default function OnboardingScreen() {
                 iconPosition="right"
                 onPress={() => setStep(4)}
                 disabled={usernameStatus !== "available"}
-                className="flex-1"
+                className="flex-1 rounded-full shadow-sm"
               >
                 Continue
               </Button>
@@ -359,6 +463,7 @@ export default function OnboardingScreen() {
                       value={linkValues[link.key] ?? ""}
                       onChangeText={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
                       autoCapitalize="none"
+                      className="rounded-xl"
                     />
                   ) : undefined
                 }
@@ -372,12 +477,12 @@ export default function OnboardingScreen() {
               </View>
             )}
 
-            <View className="flex-row gap-3">
+            <View className="flex-row gap-3 pt-2">
               <Button
                 variant="secondary"
                 icon="chevron-back"
                 onPress={() => setStep(3)}
-                className="flex-1"
+                className="flex-1 rounded-full"
               >
                 Back
               </Button>
@@ -386,7 +491,7 @@ export default function OnboardingScreen() {
                 iconPosition="right"
                 onPress={handleFinish}
                 loading={submitting}
-                className="flex-1"
+                className="flex-1 rounded-full shadow-sm"
               >
                 Done
               </Button>
@@ -394,6 +499,21 @@ export default function OnboardingScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Full Screen Photo Editor Modal for Onboarding */}
+      <ProfilePhotoEditor
+        visible={editorVisible}
+        imageUri={editorImageUri}
+        initialFocusMode={avatarFocusMode}
+        initialZoom={avatarZoom}
+        initialPanX={avatarPanX}
+        initialPanY={avatarPanY}
+        initialRotation={avatarRotation}
+        initialAspectMask={avatarAspectMask}
+        initialColorFilter={avatarColorFilter}
+        onClose={() => setEditorVisible(false)}
+        onSave={handleSaveEditedPhoto}
+      />
     </SafeAreaView>
   );
 }

@@ -32,7 +32,7 @@ function getPaddingClass(density?: string) {
   return "p-6 gap-4"; // default spacious
 }
 
-// --- 1. APPLE STUDIO CRISP LIGHT ---
+// --- 1. STUDIO MINIMALIST LIGHT ---
 export function AppleMinimalTemplate({
   profile,
   links,

@@ -14,15 +14,18 @@ type AvatarProps = {
   className?: string;
   showEditBadge?: boolean;
   focusMode?: AvatarFocusMode;
-  offsetY?: number;
+  zoom?: number;
+  panX?: number;
+  panY?: number;
+  rotation?: number;
+  aspectMask?: string;
+  colorFilter?: string;
 };
 
 /**
  * Professional Profile Picture & Avatar Component
- * Supports `focusMode`:
- * - 'head': Shifts photo UP (-12%) so top of head & face are 100% framed in circle (never cut off).
- * - 'fit': Uses `contain` mode so 100% of photo is shown without any cutoffs.
- * - 'center': Standard centered `cover` crop.
+ * - Un-shifted default: Renders cleanly centered ('cover') with zero artificial clipping.
+ * - Supports custom user studio adjustments (zoom, panX, panY, rotation, aspectMask, colorFilter).
  */
 export function Avatar({
   uri,
@@ -31,36 +34,54 @@ export function Avatar({
   onPress,
   className,
   showEditBadge = false,
-  focusMode = "head",
-  offsetY = 0,
+  focusMode = "center",
+  zoom,
+  panX,
+  panY,
+  rotation,
+  aspectMask = "circle",
+  colorFilter = "normal",
 }: AvatarProps) {
   const Container = onPress ? Pressable : View;
-  const radius = size / 2;
+  const radius =
+    aspectMask === "square"
+      ? size * 0.2
+      : aspectMask === "squircle"
+      ? size * 0.35
+      : size / 2;
+
   const badgeSize = Math.max(26, size * 0.3);
 
-  let scale = 1.0;
-  let translateY = 0;
+  // Proportional gesture transform scaling relative to 280px editor viewport
+  const ratio = size / 280;
+  let scale = typeof zoom === "number" && zoom > 0 ? zoom : 1.0;
+  let translateX = typeof panX === "number" ? panX * ratio : 0;
+  let translateY = typeof panY === "number" ? panY * ratio : 0;
+  const rotDeg = typeof rotation === "number" ? rotation : 0;
   let resizeMode: "cover" | "contain" = "cover";
 
-  if (focusMode === "head") {
-    // Shift UP so head, hair, and face are centered and never cut off at the top
-    scale = 1.12;
-    translateY = -size * 0.12;
+  if (focusMode === "head" && !zoom && !panY) {
+    // Subtle head adjustment (only if custom panY is not provided)
+    scale = 1.05;
+    translateY = -size * 0.05;
     resizeMode = "cover";
   } else if (focusMode === "fit") {
     // Show 100% of photo with zero clipping
     scale = 1.0;
+    translateX = 0;
     translateY = 0;
     resizeMode = "contain";
-  } else if (typeof offsetY === "number" && offsetY !== 0) {
-    scale = 1.15;
-    translateY = (offsetY / 100) * (size * 0.3);
-    resizeMode = "cover";
-  } else {
-    scale = 1.0;
-    translateY = 0;
-    resizeMode = "cover";
   }
+
+  // Filter overlay tint style
+  const filterOverlayStyle =
+    colorFilter === "mono"
+      ? "bg-slate-900/60 saturate-0"
+      : colorFilter === "warm"
+      ? "bg-amber-950/20"
+      : colorFilter === "cool"
+      ? "bg-sky-950/20"
+      : "bg-transparent";
 
   return (
     <Container
@@ -69,9 +90,9 @@ export function Avatar({
       className={cn("relative items-center justify-center", className)}
       style={{ width: size, height: size }}
     >
-      {/* Outer Circle Frame */}
+      {/* Outer Frame */}
       <View
-        className="items-center justify-center overflow-hidden bg-muted/60 shadow-md border-2 border-primary/20"
+        className="items-center justify-center overflow-hidden bg-muted/60 shadow-md border-2 border-primary/20 relative"
         style={{
           width: size,
           height: size,
@@ -79,16 +100,26 @@ export function Avatar({
         }}
       >
         {uri ? (
-          <Image
-            source={{ uri }}
-            style={{
-              width: size,
-              height: size,
-              borderRadius: radius,
-              transform: [{ scale }, { translateY }],
-            }}
-            resizeMode={resizeMode}
-          />
+          <>
+            <Image
+              source={{ uri }}
+              style={{
+                width: size,
+                height: size,
+                borderRadius: radius,
+                transform: [
+                  { scale },
+                  { translateX },
+                  { translateY },
+                  { rotate: `${rotDeg}deg` },
+                ],
+              }}
+              resizeMode={resizeMode}
+            />
+            {colorFilter !== "normal" && (
+              <View className={`absolute inset-0 pointer-events-none ${filterOverlayStyle}`} />
+            )}
+          </>
         ) : (
           <View className="items-center justify-center w-full h-full bg-primary/10">
             <Ionicons name={fallbackIcon} size={size * 0.4} color={colors.primary} />

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Linking, ScrollView, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { Database } from "@tapit/types";
+import { Avatar } from "@/components/ui/avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
@@ -73,58 +75,149 @@ export default function SettingsScreen() {
     }
   }
 
+  const isIOS = Platform.OS === "ios";
+
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-6 px-5 pt-8 pb-12">
-        <View>
-          <Text variant="h3" className="text-2xl font-bold tracking-tight text-foreground">
-            Settings & Wallet
-          </Text>
-          <Text variant="muted" className="text-xs">
-            App configuration & pass management
-          </Text>
+      <ScrollView contentContainerClassName="gap-6 px-5 pt-6 pb-12" showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text variant="h3" className="text-2xl font-bold tracking-tight text-foreground">
+              You & Settings
+            </Text>
+            <Text variant="muted" className="text-xs">
+              Account preferences, hardware store & wallet passes
+            </Text>
+          </View>
         </View>
 
-        {/* Section 1: Digital Wallet Passes */}
+        {/* 👤 Hero User Profile Card */}
+        {profile && (
+          <Pressable
+            onPress={() => router.push("/edit-profile")}
+            className="flex-row items-center justify-between rounded-3xl border border-border/60 bg-card p-4 shadow-xs active:bg-accent"
+          >
+            <View className="flex-row items-center gap-3.5">
+              <Avatar
+                uri={profile.avatar_url}
+                size={64}
+                focusMode={typeof (profile.theme as any)?.avatar_focus === "string" ? (profile.theme as any).avatar_focus : "center"}
+                zoom={typeof (profile.theme as any)?.avatar_zoom === "number" ? (profile.theme as any).avatar_zoom : undefined}
+                panX={typeof (profile.theme as any)?.avatar_pan_x === "number" ? (profile.theme as any).avatar_pan_x : undefined}
+                panY={typeof (profile.theme as any)?.avatar_pan_y === "number" ? (profile.theme as any).avatar_pan_y : undefined}
+                rotation={typeof (profile.theme as any)?.avatar_rotation === "number" ? (profile.theme as any).avatar_rotation : undefined}
+                aspectMask={typeof (profile.theme as any)?.avatar_aspect_mask === "string" ? (profile.theme as any).avatar_aspect_mask : undefined}
+                colorFilter={typeof (profile.theme as any)?.avatar_color_filter === "string" ? (profile.theme as any).avatar_color_filter : undefined}
+              />
+              <View className="gap-0.5">
+                <Text className="text-base font-bold text-foreground">{profile.display_name}</Text>
+                <Text className="text-xs text-muted-foreground">
+                  {profile.designation ? `${profile.designation} • ` : ""}tapit.man2web.in/u/{profile.username}
+                </Text>
+              </View>
+            </View>
+
+            <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+              <Ionicons name="create-outline" size={18} color={colors.primary} />
+            </View>
+          </Pressable>
+        )}
+
+        {/* 📊 Analytics & Health Activity Rings */}
         <View className="gap-2">
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Digital Wallet Passes
+            Telemetry & Insights
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm">
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
             <ListRow
-              title="Add to Apple Wallet"
-              subtitle="Save pass for offline sharing on iPhone"
-              leading={<IconBadge icon="logo-apple" bgClass="bg-black" />}
+              title="Analytics Overview"
+              subtitle="View total profile visits, QR scans & vCard saves"
+              leading={<IconBadge icon="analytics-outline" bgClass="bg-blue-600" />}
               trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
-              onPress={handleOpenAppleWallet}
-              showDivider
-            />
-            <ListRow
-              title="Add to Google Wallet"
-              subtitle="Save pass for offline sharing on Android"
-              leading={<IconBadge icon="wallet-outline" bgClass="bg-indigo-600" />}
-              trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
-              onPress={handleOpenGoogleWallet}
+              onPress={() => router.push("/insights")}
             />
           </View>
         </View>
 
-        {/* Section 2: Account */}
+        {/* 💳 Auto-Detected Digital Wallet Passes */}
         <View className="gap-2">
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Account
+            Digital Wallet Passes
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm">
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+            {isIOS ? (
+              <>
+                <ListRow
+                  title="Add to Apple Wallet"
+                  subtitle="Primary pass for offline sharing on iPhone"
+                  leading={<IconBadge icon="logo-apple" bgClass="bg-black" />}
+                  trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
+                  onPress={handleOpenAppleWallet}
+                  showDivider
+                />
+                <ListRow
+                  title="Add to Google Wallet"
+                  subtitle="Alternative pass for Android devices"
+                  leading={<IconBadge icon="wallet-outline" bgClass="bg-indigo-600" />}
+                  trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
+                  onPress={handleOpenGoogleWallet}
+                />
+              </>
+            ) : (
+              <>
+                <ListRow
+                  title="Add to Google Wallet"
+                  subtitle="Primary pass for offline sharing on Android"
+                  leading={<IconBadge icon="wallet-outline" bgClass="bg-indigo-600" />}
+                  trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
+                  onPress={handleOpenGoogleWallet}
+                  showDivider
+                />
+                <ListRow
+                  title="Add to Apple Wallet"
+                  subtitle="Alternative pass for iPhone devices"
+                  leading={<IconBadge icon="logo-apple" bgClass="bg-black" />}
+                  trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
+                  onPress={handleOpenAppleWallet}
+                />
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* 🛒 Physical NFC Hardware Store */}
+        <View className="gap-2">
+          <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            NFC Hardware Store
+          </Text>
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+            <ListRow
+              title="Order Physical NFC Cards"
+              subtitle="Executive Titanium, Bamboo & Polycarbonate Cards"
+              leading={<IconBadge icon="bag-handle-outline" bgClass="bg-purple-600" />}
+              trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
+              onPress={() => router.push("/shop")}
+            />
+          </View>
+        </View>
+
+        {/* ⚙️ Account Management */}
+        <View className="gap-2">
+          <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Account Management
+          </Text>
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
             {session?.user.email && (
               <ListRow
                 title={session.user.email}
                 subtitle="Signed in account email"
-                leading={<IconBadge icon="mail-outline" bgClass="bg-blue-600" />}
+                leading={<IconBadge icon="mail-outline" bgClass="bg-emerald-600" />}
                 showDivider
               />
             )}
             <ListRow
-              title="Sign out"
+              title="Sign Out"
               leading={<IconBadge icon="log-out-outline" bgClass="bg-amber-600" />}
               trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
               onPress={() => supabase.auth.signOut()}
@@ -132,12 +225,12 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section 3: Danger Zone */}
+        {/* ⚠️ Danger Zone */}
         <View className="gap-2">
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Danger Zone
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm">
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
             <ListRow
               title="Delete Account"
               subtitle="Permanently deletes your profile, card & contacts"

@@ -1,95 +1,61 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react";
-import { Redirect, router } from "expo-router";
+import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  ALL_TOGGLE_LINKS,
   COLOR_PRESETS,
+  STARTER_LINKS,
   WEB_TEMPLATES,
-  formatCustomLinkValue,
+  linkDisplayValue,
   type StarterLinkDef,
   type WebTemplateId,
 } from "@tapit/core";
 import type { Database } from "@tapit/types";
 import { Avatar, type AvatarFocusMode } from "@/components/ui/avatar";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ListRow } from "@/components/ui/list-row";
-import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
-import { UsernameStatus } from "@/components/ui/username-status";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { UsernameStatus as UsernameStatusIndicator } from "@/components/ui/username-status";
+import {
+  ProfilePhotoEditor,
+  type AspectMask,
+  type ColorFilter,
+  type PhotoEditorResult,
+} from "@/components/ui/profile-photo-editor";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
 import { colors } from "@/lib/colors";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
+
 type UsernameCheckStatus = "idle" | "checking" | "available" | "taken" | "invalid";
-type CustomLinkDraft = { id: string; savedId?: string; label: string; value: string };
-type EditorTab = "display" | "information" | "links";
 type PhotoTarget = "avatar" | "logo";
+type EditorTab = "display" | "identity" | "company" | "links";
 
-const CONTACT_LINKS = ALL_TOGGLE_LINKS.filter((l) => l.kind !== "social");
-const SOCIAL_LINKS = ALL_TOGGLE_LINKS.filter((l) => l.kind === "social");
-
-function LinkToggleRow({
-  link,
-  enabled,
-  value,
-  onToggle,
-  onChangeValue,
+function TabButton({
+  label,
+  active,
+  onPress,
 }: {
-  link: StarterLinkDef;
-  enabled: boolean;
-  value: string;
-  onToggle: (v: boolean) => void;
-  onChangeValue: (v: string) => void;
+  label: string;
+  active: boolean;
+  onPress: () => void;
 }) {
-  return (
-    <ListRow
-      leading={
-        <Ionicons
-          name={link.icon as ComponentProps<typeof Ionicons>["name"]}
-          size={20}
-          color={colors.mutedForeground}
-        />
-      }
-      title={link.label}
-      trailing={<Switch value={enabled} onValueChange={onToggle} />}
-      footer={
-        enabled ? (
-          <Input
-            placeholder={link.placeholder}
-            value={value}
-            onChangeText={onChangeValue}
-            autoCapitalize="none"
-          />
-        ) : undefined
-      }
-    />
-  );
-}
-
-function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
       className={cn(
-        "flex-1 items-center rounded-full py-2.5 transition-colors",
-        active ? "bg-primary shadow-xs" : "bg-transparent"
+        "flex-1 items-center justify-center py-2.5 rounded-full transition-all",
+        active ? "bg-card shadow-xs" : "bg-transparent active:bg-accent/50",
       )}
     >
-      <Text
-        className={cn("text-xs font-bold", active ? "text-white" : "text-muted-foreground")}
-      >
+      <Text className={cn("text-xs font-bold", active ? "text-foreground" : "text-muted-foreground")}>
         {label}
       </Text>
     </Pressable>
@@ -106,6 +72,18 @@ export default function EditProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
   const [avatarFocusMode, setAvatarFocusMode] = useState<AvatarFocusMode>("head");
+
+  // Advanced Photo Adjustments State
+  const [avatarZoom, setAvatarZoom] = useState<number>(1.0);
+  const [avatarPanX, setAvatarPanX] = useState<number>(0);
+  const [avatarPanY, setAvatarPanY] = useState<number>(0);
+  const [avatarRotation, setAvatarRotation] = useState<number>(0);
+  const [avatarAspectMask, setAvatarAspectMask] = useState<AspectMask>("circle");
+  const [avatarColorFilter, setAvatarColorFilter] = useState<ColorFilter>("normal");
+
+  // Full-Screen Photo Editor Modal State
+  const [editorVisible, setEditorVisible] = useState(false);
+  const [editorImageUri, setEditorImageUri] = useState<string | null>(null);
 
   // Web Card Customization State
   const [selectedWebTemplate, setSelectedWebTemplate] = useState<WebTemplateId>("apple_minimal");
@@ -132,13 +110,10 @@ export default function EditProfileScreen() {
   const [usernameStatus, setUsernameStatus] = useState<UsernameCheckStatus>("idle");
   const [usernameReason, setUsernameReason] = useState<string | null>(null);
 
-  const [enabledLinks, setEnabledLinks] = useState<Record<string, boolean>>({});
-  const [linkValues, setLinkValues] = useState<Record<string, string>>({});
-  const [linkIds, setLinkIds] = useState<Record<string, string>>({});
-  const [linkSearch, setLinkSearch] = useState("");
-
-  const [customLinks, setCustomLinks] = useState<CustomLinkDraft[]>([]);
-  const [removedCustomLinkIds, setRemovedCustomLinkIds] = useState<string[]>([]);
+  const [links, setLinks] = useState<ProfileLink[]>([]);
+  const [addLinkSheetOpen, setAddLinkSheetOpen] = useState(false);
+  const [newLinkDef, setNewLinkDef] = useState<StarterLinkDef | null>(null);
+  const [newLinkRawValue, setNewLinkRawValue] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -166,6 +141,13 @@ export default function EditProfileScreen() {
       if (typeof themeObj.avatar_focus === "string") {
         setAvatarFocusMode(themeObj.avatar_focus as AvatarFocusMode);
       }
+      if (typeof themeObj.avatar_zoom === "number") setAvatarZoom(themeObj.avatar_zoom);
+      if (typeof themeObj.avatar_pan_x === "number") setAvatarPanX(themeObj.avatar_pan_x);
+      if (typeof themeObj.avatar_pan_y === "number") setAvatarPanY(themeObj.avatar_pan_y);
+      if (typeof themeObj.avatar_rotation === "number") setAvatarRotation(themeObj.avatar_rotation);
+      if (typeof themeObj.avatar_aspect_mask === "string") setAvatarAspectMask(themeObj.avatar_aspect_mask as AspectMask);
+      if (typeof themeObj.avatar_color_filter === "string") setAvatarColorFilter(themeObj.avatar_color_filter as ColorFilter);
+
       if (typeof themeObj.template === "string") {
         setSelectedWebTemplate(themeObj.template as WebTemplateId);
       }
@@ -193,32 +175,13 @@ export default function EditProfileScreen() {
       setOriginalUsername(profileData.username);
       setUsername(profileData.username);
 
-      const { data: links } = await supabase
+      const { data: linkData } = await supabase
         .from("profile_links")
         .select("*")
-        .eq("profile_id", profileData.id);
+        .eq("profile_id", profileData.id)
+        .order("position", { ascending: true });
 
-      const enabled: Record<string, boolean> = {};
-      const values: Record<string, string> = {};
-      const ids: Record<string, string> = {};
-      const custom: CustomLinkDraft[] = [];
-      for (const link of (links ?? []) as ProfileLink[]) {
-        if (link.kind === "custom") {
-          custom.push({ id: `saved-${link.id}`, savedId: link.id, label: link.label, value: link.value });
-          continue;
-        }
-        const def = ALL_TOGGLE_LINKS.find((l) =>
-          l.platform ? l.platform === link.platform : l.kind === link.kind,
-        );
-        if (!def) continue;
-        enabled[def.key] = true;
-        values[def.key] = link.value;
-        ids[def.key] = link.id;
-      }
-      setEnabledLinks(enabled);
-      setLinkValues(values);
-      setLinkIds(ids);
-      setCustomLinks(custom);
+      setLinks(linkData ?? []);
       setLoading(false);
     })();
   }, [session]);
@@ -226,6 +189,7 @@ export default function EditProfileScreen() {
   useEffect(() => {
     if (!username || username === originalUsername) {
       setUsernameStatus("idle");
+      setUsernameReason(null);
       return;
     }
     setUsernameStatus("checking");
@@ -256,16 +220,64 @@ export default function EditProfileScreen() {
 
     const result =
       source === "camera"
-        ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] })
-        : await ImagePicker.launchImageLibraryAsync({
-            quality: 0.8,
-            allowsEditing: true,
-            aspect: [1, 1],
-          });
+        ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: false });
 
     if (!result.canceled && result.assets[0]) {
-      if (target === "avatar") setNewAvatarUri(result.assets[0].uri);
-      else setNewLogoUri(result.assets[0].uri);
+      if (target === "avatar") {
+        setEditorImageUri(result.assets[0].uri);
+        setEditorVisible(true);
+      } else {
+        setNewLogoUri(result.assets[0].uri);
+      }
+    }
+  }
+
+  async function handleSaveEditedPhoto(res: PhotoEditorResult) {
+    setNewAvatarUri(res.imageUri);
+    setAvatarFocusMode(res.focusMode);
+    setAvatarZoom(res.zoom);
+    setAvatarPanX(res.panX);
+    setAvatarPanY(res.panY);
+    setAvatarRotation(res.rotation);
+    setAvatarAspectMask(res.aspectMask ?? "circle");
+    setAvatarColorFilter(res.colorFilter ?? "normal");
+
+    // Immediately persist photo adjustment settings to Supabase
+    if (profile) {
+      const existingTheme = (profile.theme ?? {}) as Record<string, unknown>;
+      const updatedTheme = {
+        ...existingTheme,
+        avatar_focus: res.focusMode,
+        avatar_zoom: res.zoom,
+        avatar_pan_x: res.panX,
+        avatar_pan_y: res.panY,
+        avatar_rotation: res.rotation,
+        avatar_aspect_mask: res.aspectMask ?? "circle",
+        avatar_color_filter: res.colorFilter ?? "normal",
+      };
+
+      let finalAvatarUrl = avatarUrl;
+      if (res.imageUri && res.imageUri.startsWith("file://")) {
+        finalAvatarUrl = await uploadImageIfChanged(res.imageUri, "avatars", avatarUrl);
+        setAvatarUrl(finalAvatarUrl);
+        setNewAvatarUri(null);
+      }
+
+      await supabase
+        .from("profiles")
+        .update({
+          avatar_url: finalAvatarUrl,
+          theme: updatedTheme as any,
+        })
+        .eq("id", profile.id);
+
+      setProfile({
+        ...profile,
+        avatar_url: finalAvatarUrl,
+        theme: updatedTheme as any,
+      });
+      refreshProfile();
     }
   }
 
@@ -274,7 +286,7 @@ export default function EditProfileScreen() {
     bucket: "avatars" | "logos",
     fallbackUrl: string | null,
   ): Promise<string | null> {
-    if (!uri || !session) return fallbackUrl;
+    if (!uri || !session || !uri.startsWith("file://")) return fallbackUrl;
     const response = await fetch(uri);
     const arrayBuffer = await response.arrayBuffer();
     const contentType = response.headers.get("content-type") ?? "image/jpeg";
@@ -309,6 +321,12 @@ export default function EditProfileScreen() {
     const updatedTheme = {
       ...existingTheme,
       avatar_focus: avatarFocusMode,
+      avatar_zoom: avatarZoom,
+      avatar_pan_x: avatarPanX,
+      avatar_pan_y: avatarPanY,
+      avatar_rotation: avatarRotation,
+      avatar_aspect_mask: avatarAspectMask,
+      avatar_color_filter: avatarColorFilter,
       template: selectedWebTemplate,
       primary: activeColor,
       radius: selectedRadius,
@@ -330,7 +348,7 @@ export default function EditProfileScreen() {
         bio: bio.trim() || null,
         avatar_url: newAvatarUrl,
         logo_url: newLogoUrl,
-        theme: updatedTheme,
+        theme: updatedTheme as any,
       })
       .eq("id", profile.id);
 
@@ -338,66 +356,53 @@ export default function EditProfileScreen() {
       setSubmitting(false);
       setSubmitError(
         profileError.code === "23505"
-          ? "That username was just taken — try another."
+          ? "That username is already taken."
           : profileError.message,
       );
       return;
     }
 
-    for (const link of ALL_TOGGLE_LINKS) {
-      const raw = linkValues[link.key];
-      const existingId = linkIds[link.key];
-      const isEnabled = enabledLinks[link.key] && !!raw?.trim();
-
-      if (isEnabled) {
-        const value = link.formatValue(raw);
-        if (existingId) {
-          await supabase.from("profile_links").update({ value, icon: link.icon }).eq("id", existingId);
-        } else {
-          await supabase.from("profile_links").insert({
-            profile_id: profile.id,
-            kind: link.kind,
-            platform: link.platform ?? null,
-            label: link.label,
-            value,
-            icon: link.icon,
-            position: ALL_TOGGLE_LINKS.indexOf(link),
-          });
-        }
-      } else if (existingId) {
-        await supabase.from("profile_links").delete().eq("id", existingId);
-      }
-    }
-
-    for (const id of removedCustomLinkIds) {
-      await supabase.from("profile_links").delete().eq("id", id);
-    }
-    for (const [index, draft] of customLinks.entries()) {
-      const label = draft.label.trim();
-      const raw = draft.value.trim();
-      if (!label || !raw) continue;
-      const value = formatCustomLinkValue(raw);
-      if (draft.savedId) {
-        await supabase.from("profile_links").update({ label, value }).eq("id", draft.savedId);
-      } else {
-        await supabase.from("profile_links").insert({
-          profile_id: profile.id,
-          kind: "custom",
-          platform: null,
-          label,
-          value,
-          position: ALL_TOGGLE_LINKS.length + index,
-        });
-      }
-    }
-
     await refreshProfile();
     setSubmitting(false);
-    router.replace("/");
+    router.back();
   }
 
-  if (!session) {
-    return <Redirect href="/login" />;
+  async function handleAddLinkConfirm() {
+    if (!profile || !newLinkDef || !newLinkRawValue.trim()) return;
+    const formatted = newLinkDef.formatValue(newLinkRawValue.trim());
+
+    const { data: newLink, error } = await supabase
+      .from("profile_links")
+      .insert({
+        profile_id: profile.id,
+        kind: newLinkDef.kind,
+        platform: newLinkDef.platform ?? null,
+        label: newLinkDef.label,
+        value: formatted,
+        icon: newLinkDef.icon,
+        position: links.length,
+        is_visible: true,
+      })
+      .select()
+      .single();
+
+    if (!error && newLink) {
+      setLinks((prev) => [...prev, newLink]);
+    }
+
+    setAddLinkSheetOpen(false);
+    setNewLinkDef(null);
+    setNewLinkRawValue("");
+  }
+
+  async function handleToggleLink(linkId: string, currentVisible: boolean) {
+    setLinks((prev) => prev.map((l) => (l.id === linkId ? { ...l, is_visible: !currentVisible } : l)));
+    await supabase.from("profile_links").update({ is_visible: !currentVisible }).eq("id", linkId);
+  }
+
+  async function handleDeleteLink(linkId: string) {
+    setLinks((prev) => prev.filter((l) => l.id !== linkId));
+    await supabase.from("profile_links").delete().eq("id", linkId);
   }
 
   if (loading) {
@@ -424,48 +429,101 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="gap-3 px-5 pt-8">
+      {/* Header Navigation */}
+      <View className="gap-3 px-5 pt-6 pb-2 border-b border-border/40 bg-card/60 backdrop-blur-md">
         <View className="flex-row items-center justify-between">
           <Button variant="ghost" size="sm" icon="arrow-back" onPress={() => router.back()}>
             Back
           </Button>
           <Text variant="h4" className="text-base font-bold text-foreground">
-            Edit Profile
+            Card Studio
           </Text>
-          <View className="w-12" />
+          <Button
+            size="sm"
+            onPress={handleSave}
+            loading={submitting}
+            disabled={!firstName.trim() || (username !== originalUsername && usernameStatus !== "available")}
+            className="rounded-full px-4"
+          >
+            Save
+          </Button>
         </View>
 
-        {/* Segmented Tab Control */}
+        {/* 4-Segmented Control Bar */}
         <View className="flex-row gap-1 rounded-full bg-accent/60 p-1 border border-border/50">
-          <TabButton label="Style & Theme" active={tab === "display"} onPress={() => setTab("display")} />
-          <TabButton
-            label="Information"
-            active={tab === "information"}
-            onPress={() => setTab("information")}
-          />
+          <TabButton label="Theme" active={tab === "display"} onPress={() => setTab("display")} />
+          <TabButton label="Identity" active={tab === "identity"} onPress={() => setTab("identity")} />
+          <TabButton label="Company" active={tab === "company"} onPress={() => setTab("company")} />
           <TabButton label="Links" active={tab === "links"} onPress={() => setTab("links")} />
         </View>
       </View>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="gap-5 px-5 pb-6 pt-5"
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerClassName="gap-6 px-5 pt-5 pb-12" keyboardShouldPersistTaps="handled">
+        {submitError && (
+          <View className="flex-row items-center gap-2 rounded-2xl bg-destructive/10 p-3.5 border border-destructive/20">
+            <Ionicons name="alert-circle" size={18} color={colors.danger} />
+            <Text className="text-xs font-semibold text-danger flex-1">{submitError}</Text>
+          </View>
+        )}
+
+        {/* TAB 1: THEME & DISPLAY CUSTOMIZATION */}
         {tab === "display" && (
-          <View className="gap-5 pt-1">
-            {/* 1. Authentic Human Apple Templates */}
-            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+          <View className="gap-5">
+            {/* 1. Profile Picture Studio Hero Card */}
+            <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-6 shadow-xs">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Profile Avatar Studio
+              </Text>
+
+              <Pressable onPress={() => setPhotoSheetTarget("avatar")} className="my-2">
+                <Avatar
+                  uri={newAvatarUri ?? avatarUrl}
+                  size={114}
+                  focusMode={avatarFocusMode}
+                  showEditBadge
+                />
+              </Pressable>
+
+              <View className="flex-row gap-2 w-full pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon="camera-outline"
+                  onPress={() => setPhotoSheetTarget("avatar")}
+                  className="flex-1 rounded-full border-border/70"
+                >
+                  Change Photo
+                </Button>
+
+                {(newAvatarUri || avatarUrl) && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon="create-outline"
+                    onPress={() => {
+                      setEditorImageUri(newAvatarUri || avatarUrl);
+                      setEditorVisible(true);
+                    }}
+                    className="flex-1 rounded-full"
+                  >
+                    Adjust & Crop
+                  </Button>
+                )}
+              </View>
+            </View>
+
+            {/* 2. Web Profile Templates */}
+            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
               <View className="flex-row items-center justify-between border-b border-border/40 pb-3">
                 <View className="flex-row items-center gap-2">
                   <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
-                  <Text className="text-base font-bold text-foreground">Human Web Templates</Text>
+                  <Text className="text-base font-bold text-foreground">Web Card Template</Text>
                 </View>
-                <Text className="text-xs font-semibold text-primary">Apple Standard</Text>
+                <Text className="text-xs font-semibold text-primary">Standard</Text>
               </View>
 
               <Text variant="muted" className="text-xs">
-                Handcrafted, human-designed Apple HIG templates for your public web profile:
+                Select your preferred web profile layout template:
               </Text>
 
               <View className="gap-2.5 pt-1">
@@ -489,40 +547,31 @@ export default function EditProfileScreen() {
                             <Text className="text-[10px] font-semibold text-muted-foreground">{tmpl.badge}</Text>
                           </View>
                         </View>
-                        <Text className="text-xs font-medium text-primary/90">{tmpl.subtitle}</Text>
                         <Text className="text-xs text-muted-foreground">{tmpl.description}</Text>
                       </View>
 
-                      <Ionicons
-                        name={isSelected ? "checkmark-circle" : "ellipse-outline"}
-                        size={22}
-                        color={isSelected ? colors.primary : colors.muted}
-                      />
+                      <View
+                        className={cn(
+                          "h-6 w-6 items-center justify-center rounded-full border",
+                          isSelected ? "border-primary bg-primary" : "border-muted"
+                        )}
+                      >
+                        {isSelected && <Ionicons name="checkmark" size={14} color="#ffffff" />}
+                      </View>
                     </Pressable>
                   );
                 })}
               </View>
             </View>
 
-            {/* 2. Color & Accent Customizer */}
-            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
-              <View className="flex-row items-center justify-between border-b border-border/40 pb-3">
-                <View className="flex-row items-center gap-2">
-                  <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
-                  <Text className="text-base font-bold text-foreground">Brand Color Accent</Text>
-                </View>
-                <View
-                  className="h-5 w-5 rounded-full border border-border/80"
-                  style={{ backgroundColor: currentColor }}
-                />
+            {/* 3. Accent Color Swatches */}
+            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
+              <View className="flex-row items-center gap-2 border-b border-border/40 pb-3">
+                <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
+                <Text className="text-base font-bold text-foreground">Brand Accent Color</Text>
               </View>
 
-              <Text variant="muted" className="text-xs">
-                Choose an Apple color palette or type your custom brand hex code:
-              </Text>
-
-              {/* Color Swatches */}
-              <View className="flex-row flex-wrap gap-2.5 pt-1">
+              <View className="flex-row flex-wrap gap-3 pt-1">
                 {COLOR_PRESETS.map((preset) => {
                   const isSelected = selectedColor === preset.hex && !customHex;
                   return (
@@ -544,433 +593,344 @@ export default function EditProfileScreen() {
                 })}
               </View>
 
-              {/* Custom Hex Code */}
-              <View className="mt-2 gap-1.5 pt-2 border-t border-border/40">
-                <Text className="text-xs font-semibold text-foreground">Custom Hex Color</Text>
-                <View className="flex-row items-center gap-2 rounded-2xl border border-border px-4 py-2.5 bg-background">
-                  <Text className="text-muted-foreground font-bold">#</Text>
+              <View className="pt-2">
+                <Text variant="muted" className="text-xs mb-1.5 font-medium">
+                  Custom Hex Code (Optional)
+                </Text>
+                <Input
+                  placeholder="#0071E3"
+                  value={customHex}
+                  onChangeText={setCustomHex}
+                  autoCapitalize="characters"
+                  className="rounded-2xl"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* TAB 2: IDENTITY & BIO */}
+        {tab === "identity" && (
+          <View className="gap-4">
+            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Web Handle & Name
+              </Text>
+
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Public Handle</Text>
+                <View className="flex-row items-center rounded-2xl border border-border/80 px-4 py-3 bg-background">
+                  <Text className="text-muted-foreground font-mono text-xs">tapit.man2web.in/u/</Text>
                   <Input
-                    placeholder="0071E3"
-                    value={customHex}
-                    onChangeText={(v) => setCustomHex(v.replace("#", ""))}
-                    autoCapitalize="characters"
-                    className="flex-1 border-0 p-0 text-sm font-bold text-foreground"
+                    value={username}
+                    onChangeText={(v) => setUsername(v.toLowerCase())}
+                    autoCapitalize="none"
+                    className="flex-1 border-0 p-0 font-bold text-foreground text-xs"
                   />
                 </View>
+                {username !== originalUsername && (
+                  <UsernameStatusIndicator status={usernameStatus} reason={usernameReason} />
+                )}
               </View>
-            </View>
 
-            {/* 3. Card Geometry & Layout Customization */}
-            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
-              <Text className="text-base font-bold text-foreground">Card Geometry & Style</Text>
+              <View className="flex-row gap-3 pt-1">
+                <View className="flex-1 gap-1.5">
+                  <Text className="text-xs font-semibold text-foreground">First Name *</Text>
+                  <Input placeholder="John" value={firstName} onChangeText={setFirstName} className="rounded-2xl" />
+                </View>
 
-              {/* Corner Radius */}
-              <View className="gap-2">
-                <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Corner Radius
-                </Text>
-                <View className="flex-row items-center gap-1.5 rounded-full bg-accent/40 p-1 border border-border/60">
-                  <Pressable
-                    onPress={() => setSelectedRadius("rounded")}
-                    className={cn(
-                      "flex-1 items-center py-2 rounded-full",
-                      selectedRadius === "rounded" ? "bg-primary shadow-xs" : "bg-transparent"
-                    )}
-                  >
-                    <Text className={cn("text-xs font-bold", selectedRadius === "rounded" ? "text-white" : "text-muted-foreground")}>
-                      Rounded
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedRadius("pill")}
-                    className={cn(
-                      "flex-1 items-center py-2 rounded-full",
-                      selectedRadius === "pill" ? "bg-primary shadow-xs" : "bg-transparent"
-                    )}
-                  >
-                    <Text className={cn("text-xs font-bold", selectedRadius === "pill" ? "text-white" : "text-muted-foreground")}>
-                      Pill
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedRadius("sharp")}
-                    className={cn(
-                      "flex-1 items-center py-2 rounded-full",
-                      selectedRadius === "sharp" ? "bg-primary shadow-xs" : "bg-transparent"
-                    )}
-                  >
-                    <Text className={cn("text-xs font-bold", selectedRadius === "sharp" ? "text-white" : "text-muted-foreground")}>
-                      Sharp
-                    </Text>
-                  </Pressable>
+                <View className="flex-1 gap-1.5">
+                  <Text className="text-xs font-semibold text-foreground">Last Name</Text>
+                  <Input placeholder="Doe" value={lastName} onChangeText={setLastName} className="rounded-2xl" />
                 </View>
               </View>
 
-              {/* Layout Density */}
-              <View className="gap-2 pt-2">
-                <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Layout Density
-                </Text>
-                <View className="flex-row items-center gap-1.5 rounded-full bg-accent/40 p-1 border border-border/60">
-                  <Pressable
-                    onPress={() => setSelectedDensity("spacious")}
-                    className={cn(
-                      "flex-1 items-center py-2 rounded-full",
-                      selectedDensity === "spacious" ? "bg-primary shadow-xs" : "bg-transparent"
-                    )}
-                  >
-                    <Text className={cn("text-xs font-bold", selectedDensity === "spacious" ? "text-white" : "text-muted-foreground")}>
-                      Spacious
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedDensity("compact")}
-                    className={cn(
-                      "flex-1 items-center py-2 rounded-full",
-                      selectedDensity === "compact" ? "bg-primary shadow-xs" : "bg-transparent"
-                    )}
-                  >
-                    <Text className={cn("text-xs font-bold", selectedDensity === "compact" ? "text-white" : "text-muted-foreground")}>
-                      Compact
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-
-            {/* 4. Profile Photo Module */}
-            <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
-              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Profile Photo
-              </Text>
-
-              <Pressable onPress={() => setPhotoSheetTarget("avatar")} className="my-2">
-                <Avatar
-                  uri={newAvatarUri ?? avatarUrl}
-                  size={110}
-                  focusMode={avatarFocusMode}
-                  showEditBadge
-                />
-              </Pressable>
-
-              <Button
-                variant="outline"
-                size="sm"
-                icon="camera-outline"
-                onPress={() => setPhotoSheetTarget("avatar")}
-                className="rounded-full px-5 border-border/70"
-              >
-                Change Profile Photo
-              </Button>
-
-              {/* Photo Framing Mode Segmented Chips */}
-              {(newAvatarUri || avatarUrl) && (
-                <View className="mt-2 w-full items-center gap-2 rounded-2xl border border-border/40 bg-accent/30 p-3">
-                  <Text className="text-xs font-semibold text-foreground">
-                    Photo Framing Mode
-                  </Text>
-                  <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-background/80 p-1 border border-border/60">
-                    <Pressable
-                      onPress={() => setAvatarFocusMode("head")}
-                      className={cn(
-                        "px-3.5 py-1.5 rounded-full",
-                        avatarFocusMode === "head" ? "bg-primary shadow-xs" : "bg-transparent"
-                      )}
-                    >
-                      <Text className={cn("text-xs font-bold", avatarFocusMode === "head" ? "text-white" : "text-muted-foreground")}>
-                        Focus Head
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setAvatarFocusMode("center")}
-                      className={cn(
-                        "px-3.5 py-1.5 rounded-full",
-                        avatarFocusMode === "center" ? "bg-primary shadow-xs" : "bg-transparent"
-                      )}
-                    >
-                      <Text className={cn("text-xs font-bold", avatarFocusMode === "center" ? "text-white" : "text-muted-foreground")}>
-                        Center
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setAvatarFocusMode("fit")}
-                      className={cn(
-                        "px-3.5 py-1.5 rounded-full",
-                        avatarFocusMode === "fit" ? "bg-primary shadow-xs" : "bg-transparent"
-                      )}
-                    >
-                      <Text className={cn("text-xs font-bold", avatarFocusMode === "fit" ? "text-white" : "text-muted-foreground")}>
-                        Full Photo
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* 5. Company Logo Module */}
-            <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
-              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Company Brand Logo
-              </Text>
-
-              <Pressable onPress={() => setPhotoSheetTarget("logo")} className="my-2">
-                <Avatar uri={newLogoUri ?? logoUrl} size={84} fallbackIcon="business-outline" showEditBadge />
-              </Pressable>
-
-              <Button
-                variant="outline"
-                size="sm"
-                icon="image-outline"
-                onPress={() => setPhotoSheetTarget("logo")}
-                className="rounded-full px-5 border-border/70"
-              >
-                {newLogoUri ?? logoUrl ? "Change Company Logo" : "Upload Company Logo"}
-              </Button>
-            </View>
-          </View>
-        )}
-
-        {tab === "information" && (
-          <View className="gap-4">
-            <Field label="First Name">
-              <Input value={firstName} onChangeText={setFirstName} className="rounded-2xl" />
-            </Field>
-            <Field label="Last Name">
-              <Input value={lastName} onChangeText={setLastName} className="rounded-2xl" />
-            </Field>
-            <Field label="Accreditations">
-              <Input placeholder="e.g. MD, PhD" value={accreditations} onChangeText={setAccreditations} className="rounded-2xl" />
-            </Field>
-            <Field label="Pronouns">
-              <Input placeholder="e.g. she/her" value={pronouns} onChangeText={setPronouns} className="rounded-2xl" />
-            </Field>
-
-            <Text variant="large" className="mt-2 font-bold text-foreground">
-              Affiliation & Bio
-            </Text>
-            <Field label="Title / Position">
-              <Input value={designation} onChangeText={setDesignation} className="rounded-2xl" />
-            </Field>
-            <Field label="Department">
-              <Input value={department} onChangeText={setDepartment} className="rounded-2xl" />
-            </Field>
-            <Field label="Company / Organization">
-              <Input value={company} onChangeText={setCompany} className="rounded-2xl" />
-            </Field>
-            <Field label="Bio / Slogan">
-              <Input
-                placeholder="A line or two about you..."
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                numberOfLines={3}
-                className="min-h-20 rounded-2xl"
-              />
-            </Field>
-
-            <Field label="Profile Handle">
-              <View className="flex-row items-center rounded-2xl border border-border px-4 py-3 bg-card">
-                <Text className="text-muted-foreground text-sm font-medium">tapit.man2web.in/u/</Text>
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Accreditations / Degrees</Text>
                 <Input
-                  value={username}
-                  onChangeText={(v) => setUsername(v.toLowerCase())}
-                  autoCapitalize="none"
-                  className="flex-1 border-0 p-0 text-sm text-foreground font-bold"
+                  placeholder="e.g. MD, PhD, CPA"
+                  value={accreditations}
+                  onChangeText={setAccreditations}
+                  className="rounded-2xl"
                 />
               </View>
-              {username !== originalUsername && (
-                <UsernameStatus status={usernameStatus} reason={usernameReason} />
-              )}
-            </Field>
+
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Pronouns</Text>
+                <Input
+                  placeholder="e.g. they/them, she/her"
+                  value={pronouns}
+                  onChangeText={setPronouns}
+                  className="rounded-2xl"
+                />
+              </View>
+
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Bio / Executive Pitch</Text>
+                <Input
+                  placeholder="A short introduction about yourself..."
+                  value={bio}
+                  onChangeText={setBio}
+                  multiline
+                  numberOfLines={3}
+                  className="min-h-20 rounded-2xl"
+                />
+              </View>
+            </View>
           </View>
         )}
 
+        {/* TAB 3: COMPANY & ORGANIZATION */}
+        {tab === "company" && (
+          <View className="gap-4">
+            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Workplace Information
+              </Text>
+
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Job Title / Designation</Text>
+                <Input
+                  placeholder="e.g. Senior Partner"
+                  value={designation}
+                  onChangeText={setDesignation}
+                  className="rounded-2xl"
+                />
+              </View>
+
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Department</Text>
+                <Input
+                  placeholder="e.g. Enterprise Sales"
+                  value={department}
+                  onChangeText={setDepartment}
+                  className="rounded-2xl"
+                />
+              </View>
+
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Organization / Company Name</Text>
+                <Input
+                  placeholder="e.g. Acme Corporation"
+                  value={company}
+                  onChangeText={setCompany}
+                  className="rounded-2xl"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* TAB 4: SOCIAL LINKS & CONTACT CHANNELS */}
         {tab === "links" && (
           <View className="gap-4">
-            {(() => {
-              const query = linkSearch.trim().toLowerCase();
-              const matches = (link: StarterLinkDef) => link.label.toLowerCase().includes(query);
-              const contactMatches = CONTACT_LINKS.filter(matches);
-              const socialMatches = SOCIAL_LINKS.filter(matches);
-              const contactCount = CONTACT_LINKS.filter((l) => enabledLinks[l.key]).length;
-              const socialCount = SOCIAL_LINKS.filter((l) => enabledLinks[l.key]).length;
+            <View className="flex-row items-center justify-between px-1">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Active Channels ({links.length})
+              </Text>
+            </View>
 
-              return (
-                <>
-                  <View className="flex-row items-center gap-2 rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-xs">
-                    <Ionicons name="search-outline" size={18} color={colors.muted} />
-                    <Input
-                      placeholder="Search links (Instagram, WhatsApp, LinkedIn...)"
-                      value={linkSearch}
-                      onChangeText={setLinkSearch}
-                      autoCapitalize="none"
-                      className="flex-1 border-0 p-0 text-sm"
-                    />
-                  </View>
-
-                  {contactMatches.length > 0 && (
-                    <>
-                      <Text variant="large" className="mt-2 font-bold text-foreground">
-                        Contact & Payments{contactCount > 0 ? ` (${contactCount} active)` : ""}
-                      </Text>
-                      {contactMatches.map((link) => (
-                        <LinkToggleRow
-                          key={link.key}
-                          link={link}
-                          enabled={!!enabledLinks[link.key]}
-                          value={linkValues[link.key] ?? ""}
-                          onToggle={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
-                          onChangeValue={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
+            {/* List of Active Links */}
+            <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+              {links.length === 0 ? (
+                <View className="p-6 text-center items-center gap-2">
+                  <Ionicons name="link-outline" size={32} color={colors.muted} />
+                  <Text className="text-xs text-muted-foreground text-center">
+                    No active channels yet — tap below to add WhatsApp, Email, LinkedIn or Custom URL.
+                  </Text>
+                </View>
+              ) : (
+                links.map((link, idx) => (
+                  <ListRow
+                    key={link.id}
+                    showDivider={idx < links.length - 1}
+                    leading={
+                      <View className="h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                        <Ionicons
+                          name={(link.icon ?? "link-outline") as ComponentProps<typeof Ionicons>["name"]}
+                          size={18}
+                          color={colors.primary}
                         />
-                      ))}
-                    </>
-                  )}
-
-                  {socialMatches.length > 0 && (
-                    <>
-                      <Text variant="large" className="mt-2 font-bold text-foreground">
-                        Social Networks{socialCount > 0 ? ` (${socialCount} active)` : ""}
-                      </Text>
-                      {socialMatches.map((link) => (
-                        <LinkToggleRow
-                          key={link.key}
-                          link={link}
-                          enabled={!!enabledLinks[link.key]}
-                          value={linkValues[link.key] ?? ""}
-                          onToggle={(v) => setEnabledLinks((prev) => ({ ...prev, [link.key]: v }))}
-                          onChangeValue={(v) => setLinkValues((prev) => ({ ...prev, [link.key]: v }))}
-                        />
-                      ))}
-                    </>
-                  )}
-                </>
-              );
-            })()}
-
-            <Text variant="large" className="mt-2 font-bold text-foreground">
-              Custom Links
-            </Text>
-            {customLinks.map((draft) => (
-              <Card key={draft.id} className="gap-3 rounded-2xl border border-border/60 p-4">
-                <Field label="Label">
-                  <View className="flex-row items-center gap-2">
-                    <Input
-                      placeholder="e.g. Portfolio"
-                      value={draft.label}
-                      onChangeText={(v) =>
-                        setCustomLinks((prev) =>
-                          prev.map((d) => (d.id === draft.id ? { ...d, label: v } : d)),
-                        )
-                      }
-                      className="flex-1 rounded-xl"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      icon="trash-outline"
-                      onPress={() => {
-                        if (draft.savedId) {
-                          setRemovedCustomLinkIds((prev) => [...prev, draft.savedId!]);
-                        }
-                        setCustomLinks((prev) => prev.filter((d) => d.id !== draft.id));
-                      }}
-                    />
-                  </View>
-                </Field>
-                <Field label="URL">
-                  <Input
-                    placeholder="yoursite.com/page"
-                    value={draft.value}
-                    onChangeText={(v) =>
-                      setCustomLinks((prev) =>
-                        prev.map((d) => (d.id === draft.id ? { ...d, value: v } : d)),
-                      )
+                      </View>
                     }
-                    autoCapitalize="none"
-                    className="rounded-xl"
+                    title={link.label}
+                    subtitle={linkDisplayValue(link.value)}
+                    trailing={
+                      <View className="flex-row items-center gap-3">
+                        <Pressable onPress={() => handleToggleLink(link.id, !!link.is_visible)}>
+                          <Ionicons
+                            name={link.is_visible ? "eye" : "eye-off-outline"}
+                            size={18}
+                            color={link.is_visible ? colors.primary : colors.muted}
+                          />
+                        </Pressable>
+                        <Pressable onPress={() => handleDeleteLink(link.id)}>
+                          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                        </Pressable>
+                      </View>
+                    }
                   />
-                </Field>
-              </Card>
-            ))}
-            <Button
-              variant="secondary"
-              icon="add-circle-outline"
-              onPress={() =>
-                setCustomLinks((prev) => [
-                  ...prev,
-                  { id: `new-${customLinkSeq.current++}`, label: "", value: "" },
-                ])
-              }
-              className="rounded-full py-3"
-            >
-              Add Custom Link
-            </Button>
+                ))
+              )}
+            </View>
+
+            {/* Quick Add Link Buttons Grid */}
+            <View className="gap-2.5 pt-2">
+              <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Add New Channel
+              </Text>
+              <View className="flex-row flex-wrap gap-2.5">
+                {STARTER_LINKS.map((starterDef) => (
+                  <Pressable
+                    key={starterDef.key}
+                    onPress={() => {
+                      setNewLinkDef(starterDef);
+                      setNewLinkRawValue("");
+                      setAddLinkSheetOpen(true);
+                    }}
+                    className="flex-row items-center gap-2 rounded-2xl border border-border/60 bg-card px-3.5 py-3 shadow-xs active:bg-accent"
+                  >
+                    <Ionicons
+                      name={starterDef.icon as ComponentProps<typeof Ionicons>["name"]}
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <Text className="text-xs font-bold text-foreground">{starterDef.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
         )}
       </ScrollView>
 
-      <View className="gap-2 px-5 pb-8 pt-2">
-        {submitError && (
-          <View className="flex-row items-center gap-1.5 px-1">
-            <Ionicons name="alert-circle" size={16} color={colors.danger} />
-            <Text className="text-xs text-danger">{submitError}</Text>
-          </View>
-        )}
+      {/* Add Link Bottom Sheet Modal */}
+      <BottomSheet visible={addLinkSheetOpen} onClose={() => setAddLinkSheetOpen(false)}>
+        <View className="gap-4 pb-2">
+          {newLinkDef && (
+            <>
+              <View className="flex-row items-center gap-2.5 border-b border-border/40 pb-3">
+                <Ionicons
+                  name={newLinkDef.icon as ComponentProps<typeof Ionicons>["name"]}
+                  size={22}
+                  color={colors.primary}
+                />
+                <Text variant="h4" className="text-base font-bold text-foreground">
+                  Add {newLinkDef.label}
+                </Text>
+              </View>
 
-        <View className="flex-row gap-3">
-          <Button
-            variant="secondary"
-            icon="close"
-            onPress={() => router.replace("/")}
-            className="flex-1 rounded-full py-3.5"
-          >
-            Cancel
-          </Button>
-          <Button
-            icon="checkmark"
-            iconPosition="right"
-            onPress={handleSave}
-            loading={submitting}
-            disabled={!firstName.trim() || (username !== originalUsername && usernameStatus !== "available")}
-            className="flex-1 rounded-full py-3.5 shadow-sm"
-          >
-            Save Changes
-          </Button>
+              <View className="gap-1.5">
+                <Text className="text-xs font-semibold text-foreground">Enter Handle / URL</Text>
+                <Input
+                  placeholder={newLinkDef.placeholder}
+                  value={newLinkRawValue}
+                  onChangeText={setNewLinkRawValue}
+                  autoFocus
+                  autoCapitalize="none"
+                  className="rounded-2xl"
+                />
+              </View>
+
+              <View className="gap-2 pt-2">
+                <Button
+                  onPress={handleAddLinkConfirm}
+                  disabled={!newLinkRawValue.trim()}
+                  className="w-full rounded-full py-3.5"
+                >
+                  Add to Card
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => setAddLinkSheetOpen(false)}
+                  className="w-full rounded-full"
+                >
+                  Cancel
+                </Button>
+              </View>
+            </>
+          )}
         </View>
-      </View>
+      </BottomSheet>
 
-      {/* Photo Source Bottom Sheet */}
-      <BottomSheet visible={photoSheetTarget !== null} onClose={() => setPhotoSheetTarget(null)}>
-        <View className="gap-3 pb-2">
+      {/* Photo Picker Bottom Sheet Modal */}
+      <BottomSheet visible={!!photoSheetTarget} onClose={() => setPhotoSheetTarget(null)}>
+        <View className="gap-2.5 pb-2">
           <Text variant="h4" className="text-center font-bold">
-            {photoSheetTarget === "avatar" ? "Profile Photo" : "Company Logo"}
+            {photoSheetTarget === "avatar" ? "Update Profile Picture" : "Update Company Logo"}
           </Text>
+          <Button
+            variant="outline"
+            icon="camera-outline"
+            onPress={() => photoSheetTarget && pickImage("camera", photoSheetTarget)}
+            className="rounded-full py-3.5 justify-start border-border/70"
+          >
+            Take Photo with Camera
+          </Button>
+          <Button
+            variant="outline"
+            icon="images-outline"
+            onPress={() => photoSheetTarget && pickImage("library", photoSheetTarget)}
+            className="rounded-full py-3.5 justify-start border-border/70"
+          >
+            Choose from Photo Library
+          </Button>
 
-          <View className="gap-2.5 pt-2">
+          {photoSheetTarget === "avatar" && (avatarUrl || newAvatarUri) && (
             <Button
               variant="outline"
-              icon="camera-outline"
-              onPress={() => pickImage("camera", photoSheetTarget ?? "avatar")}
+              icon="create-outline"
+              onPress={() => {
+                setPhotoSheetTarget(null);
+                setEditorImageUri(newAvatarUri || avatarUrl);
+                setEditorVisible(true);
+              }}
               className="rounded-full py-3.5 justify-start border-border/70"
             >
-              Take Photo
+              Edit & Adjust Photo
             </Button>
+          )}
+
+          {photoSheetTarget && (
             <Button
-              variant="outline"
-              icon="images-outline"
-              onPress={() => pickImage("library", photoSheetTarget ?? "avatar")}
-              className="rounded-full py-3.5 justify-start border-border/70"
+              variant="destructive"
+              icon="trash-outline"
+              onPress={() => {
+                if (photoSheetTarget === "avatar") {
+                  setAvatarUrl(null);
+                  setNewAvatarUri(null);
+                } else {
+                  setLogoUrl(null);
+                  setNewLogoUri(null);
+                }
+                setPhotoSheetTarget(null);
+              }}
+              className="rounded-full py-3.5 justify-start"
             >
-              Choose from Photos Library
+              Remove Profile Photo
             </Button>
-          </View>
+          )}
 
           <Button variant="secondary" onPress={() => setPhotoSheetTarget(null)} className="rounded-full mt-1">
             Cancel
           </Button>
         </View>
       </BottomSheet>
+
+      {/* Full Screen Photo Editor Modal */}
+      <ProfilePhotoEditor
+        visible={editorVisible}
+        imageUri={editorImageUri}
+        initialFocusMode={avatarFocusMode}
+        initialZoom={avatarZoom}
+        initialPanX={avatarPanX}
+        initialPanY={avatarPanY}
+        initialRotation={avatarRotation}
+        initialAspectMask={avatarAspectMask}
+        initialColorFilter={avatarColorFilter}
+        onClose={() => setEditorVisible(false)}
+        onSave={handleSaveEditedPhoto}
+      />
     </SafeAreaView>
   );
 }

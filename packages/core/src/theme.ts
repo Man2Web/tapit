@@ -19,41 +19,41 @@ export type WebTemplateDef = {
 export const WEB_TEMPLATES: WebTemplateDef[] = [
   {
     id: "apple_minimal",
-    name: "Apple Studio Crisp",
-    subtitle: "Cupertino Light",
-    description: "Pure Apple HIG aesthetic with clean titanium borders, SF typography, and subtle micro-shadows.",
-    badge: "Apple HIG",
+    name: "Studio Minimalist",
+    subtitle: "Clean Light",
+    description: "Pure minimalist aesthetic with crisp borders, typography hierarchy, and subtle micro-shadows.",
+    badge: "Minimal",
     themeStyle: "light",
   },
   {
     id: "executive_pass",
-    name: "Executive Obsidian Pass",
-    subtitle: "Midnight Pro",
-    description: "High-status executive wallet pass with deep obsidian backdrop, metallic accents, and verified badge.",
+    name: "Executive Pass",
+    subtitle: "Midnight Obsidian",
+    description: "High-status professional wallet pass with deep obsidian backdrop, metallic accents, and verified badge.",
     badge: "Executive",
     themeStyle: "dark",
   },
   {
     id: "modern_glass",
-    name: "macOS Sonoma Glass",
-    subtitle: "Frosted Glassmorphism",
-    description: "Authentic macOS glass sheet featuring real blur filters, soft ambient glows, and floating action rows.",
-    badge: "macOS",
+    name: "Monochrome Glass",
+    subtitle: "Frosted Backdrop",
+    description: "Translucent glass card featuring real blur filters, soft ambient glow, and clean action rows.",
+    badge: "Glass",
     themeStyle: "dark",
   },
   {
     id: "editorial_slate",
     name: "Architectural Slate",
-    subtitle: "Human Editorial",
-    description: "Tactile architectural layout with crisp typography hierarchy, structured dividers, and clean grid alignment.",
+    subtitle: "Editorial Grid",
+    description: "Tactile architectural layout with structured dividers, crisp typography, and refined grid alignment.",
     badge: "Editorial",
     themeStyle: "dark",
   },
   {
     id: "paper_linen",
-    name: "Warm Ivory Linen",
-    subtitle: "Stationery Press",
-    description: "Organic stationery card aesthetic crafted with natural warm ivory tones, subtle debossing, and soft shadows.",
+    name: "Warm Stationery",
+    subtitle: "Ivory Press",
+    description: "Organic stationery card aesthetic crafted with natural warm ivory tones and debossed details.",
     badge: "Stationery",
     themeStyle: "warm",
   },
@@ -66,13 +66,13 @@ export type ColorPreset = {
 };
 
 export const COLOR_PRESETS: ColorPreset[] = [
-  { id: "pacific", name: "Pacific Blue", hex: "#0071E3" },
-  { id: "violet", name: "Titanium Violet", hex: "#7C2FD6" },
-  { id: "obsidian", name: "Midnight Black", hex: "#0F172A" },
+  { id: "azure", name: "Azure Blue", hex: "#2563EB" },
+  { id: "violet", name: "Deep Violet", hex: "#7C2FD6" },
+  { id: "slate", name: "Slate Black", hex: "#0F172A" },
   { id: "emerald", name: "Emerald Sage", hex: "#10B981" },
-  { id: "amber", name: "Sunset Amber", hex: "#F59E0B" },
-  { id: "rose", name: "Rose Gold", hex: "#E11D48" },
-  { id: "spacegray", name: "Space Gray", hex: "#475569" },
+  { id: "amber", name: "Amber Gold", hex: "#F59E0B" },
+  { id: "rose", name: "Crimson Rose", hex: "#E11D48" },
+  { id: "neutral", name: "Neutral Gray", hex: "#475569" },
 ];
 
 export type ProfileTheme = {
@@ -89,7 +89,7 @@ export type ProfileTheme = {
 
 export const defaultTheme: ProfileTheme = {
   template: "apple_minimal",
-  primary: "#0071E3",
+  primary: "#2563EB",
   accent: "#7C2FD6",
   font: "system",
   layout: "stacked",
