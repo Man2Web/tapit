@@ -5,6 +5,45 @@ alter table public.leads
   add column if not exists notes text,
   add column if not exists meta jsonb default '{}'::jsonb;
 
+-- RLS Policies for UPDATE & DELETE (allows card owners to edit or delete their saved contacts)
+drop policy if exists "leads: owner update" on public.leads;
+create policy "leads: owner update"
+  on public.leads for update
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = leads.profile_id and p.owner_id = (select auth.uid())
+    )
+  );
+
+drop policy if exists "leads: owner delete" on public.leads;
+create policy "leads: owner delete"
+  on public.leads for delete
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = leads.profile_id and p.owner_id = (select auth.uid())
+    )
+  );
+
+-- Secure RPC function to delete a lead owned by the current authenticated user
+create or replace function public.delete_lead(p_lead_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.leads
+  where id = p_lead_id
+    and profile_id in (
+      select id from public.profiles where owner_id = (select auth.uid())
+    );
+end;
+$$;
+
+grant execute on function public.delete_lead(uuid) to authenticated;
+
 -- Update submit_lead RPC to accept company, designation, notes
 create or replace function public.submit_lead(
   p_username text,

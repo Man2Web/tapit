@@ -29,7 +29,6 @@ export default function OnboardingScreen() {
   const [bio, setBio] = useState("");
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [avatarOffsetY, setAvatarOffsetY] = useState<number>(0);
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
 
   const [username, setUsername] = useState("");
@@ -45,18 +44,12 @@ export default function OnboardingScreen() {
 
   const checkSeq = useRef(0);
 
-  // Adjusted during render (not an effect) per React's guidance for "derive state from a
-  // prop, but allow local override": https://react.dev/learn/you-might-not-need-an-effect
   const [lastSuggestedFor, setLastSuggestedFor] = useState("");
   if (!usernameTouched && displayName !== lastSuggestedFor) {
     setLastSuggestedFor(displayName);
     setUsername(suggestUsername(displayName));
   }
 
-  // The debounced availability check below sets a "checking"/"idle" loading status
-  // synchronously before its async call — React's own endorsed "fetch in an effect"
-  // pattern (https://react.dev/learn/you-might-not-need-an-effect#fetching-data).
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!username) {
       setUsernameStatus("idle");
@@ -79,7 +72,6 @@ export default function OnboardingScreen() {
     }, 400);
     return () => clearTimeout(timeout);
   }, [username]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function pickImage(source: "camera" | "library") {
     setPhotoSheetOpen(false);
@@ -139,7 +131,6 @@ export default function OnboardingScreen() {
         company: company || null,
         bio: bio || null,
         avatar_url: avatarUrl,
-        theme: { avatar_offset_y: avatarOffsetY },
       })
       .select()
       .single();
@@ -258,43 +249,11 @@ export default function OnboardingScreen() {
                 uri={avatarUri}
                 size={96}
                 fallbackIcon="camera-outline"
-                offsetY={avatarOffsetY}
+                showEditBadge
               />
             </Pressable>
 
-            {avatarUri && (
-              <View className="w-full max-w-xs items-center gap-2 rounded-xl border border-border bg-card p-3 shadow-sm">
-                <Text className="text-xs font-semibold text-foreground">
-                  Adjust Photo Alignment
-                </Text>
-                <View className="flex-row items-center justify-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon="arrow-up"
-                    onPress={() => setAvatarOffsetY((prev) => Math.max(-50, prev - 10))}
-                  >
-                    Up
-                  </Button>
-                  <Button
-                    variant={avatarOffsetY === 0 ? "default" : "ghost"}
-                    size="sm"
-                    onPress={() => setAvatarOffsetY(0)}
-                  >
-                    Center
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon="arrow-down"
-                    onPress={() => setAvatarOffsetY((prev) => Math.min(50, prev + 10))}
-                  >
-                    Down
-                  </Button>
-                </View>
-              </View>
-            )}
-            <View className="w-full flex-row gap-3">
+            <View className="w-full flex-row gap-3 pt-4">
               <Button
                 variant="secondary"
                 icon="chevron-back"

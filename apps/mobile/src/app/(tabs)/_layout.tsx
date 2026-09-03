@@ -1,16 +1,25 @@
-import { Redirect, Tabs } from "expo-router";
+import { useEffect } from "react";
+import { router, Tabs, useRootNavigationState } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/lib/colors";
 
 export default function TabsLayout() {
-  const { session, hasProfile } = useAuth();
+  const rootNavigationState = useRootNavigationState();
+  const { session, hasProfile, loading } = useAuth();
 
-  if (!session) {
-    return <Redirect href="/login" />;
-  }
-  if (hasProfile === false) {
-    return <Redirect href="/onboarding" />;
+  useEffect(() => {
+    if (!rootNavigationState?.key || loading) return;
+
+    if (!session) {
+      router.replace("/login");
+    } else if (hasProfile === false) {
+      router.replace("/onboarding");
+    }
+  }, [session, hasProfile, loading, rootNavigationState?.key]);
+
+  if (!rootNavigationState?.key || loading || !session || hasProfile === false) {
+    return null;
   }
 
   return (

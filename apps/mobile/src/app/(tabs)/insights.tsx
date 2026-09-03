@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/lib/colors";
@@ -13,23 +12,34 @@ type Insights = { views: number; qr_views: number; vcard_saves: number };
 
 const EMPTY_INSIGHTS: Insights = { views: 0, qr_views: 0, vcard_saves: 0 };
 
-function StatCard({
+function AppleStatCard({
   icon,
   label,
   value,
+  subtitle,
+  iconBgClass,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   value: number;
+  subtitle: string;
+  iconBgClass: string;
 }) {
   return (
-    <Card className="flex-1 items-center gap-2 py-5">
-      <Ionicons name={icon} size={22} color={colors.primary} />
-      <Text variant="h3">{value}</Text>
-      <Text variant="muted" className="text-center text-sm">
-        {label}
-      </Text>
-    </Card>
+    <View className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm gap-3">
+      <View className="flex-row items-center justify-between">
+        <View className={`h-11 w-11 items-center justify-center rounded-2xl ${iconBgClass}`}>
+          <Ionicons name={icon} size={22} color={colors.primary} />
+        </View>
+        <Ionicons name="sparkles" size={16} color={colors.muted} />
+      </View>
+
+      <View>
+        <Text className="text-3xl font-extrabold text-foreground">{value}</Text>
+        <Text className="text-sm font-bold text-foreground mt-0.5">{label}</Text>
+        <Text className="text-xs text-muted-foreground mt-0.5">{subtitle}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -38,8 +48,6 @@ export default function InsightsScreen() {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Refetches whenever this tab regains focus, same pattern as the Card tab, so a fresh
-  // share/QR scan shows up next time the user checks without needing an app reload.
   useFocusEffect(
     useCallback(() => {
       if (!session) return;
@@ -65,18 +73,42 @@ export default function InsightsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 gap-4 px-6 pt-16">
-        <Text variant="h4">Insights</Text>
-        <Text variant="muted" className="-mt-2 text-sm">
-          How people are finding and saving your card.
-        </Text>
-
-        <View className="flex-row gap-3">
-          <StatCard icon="eye-outline" label="Profile Views" value={stats.views} />
-          <StatCard icon="qr-code-outline" label="QR Scans" value={stats.qr_views} />
-          <StatCard icon="download-outline" label="Saved to Phone" value={stats.vcard_saves} />
+      <ScrollView contentContainerClassName="gap-5 px-5 pt-8 pb-12">
+        <View>
+          <Text variant="h3" className="text-2xl font-bold tracking-tight text-foreground">
+            Insights & Analytics
+          </Text>
+          <Text variant="muted" className="text-xs">
+            Live profile engagement & card downloads
+          </Text>
         </View>
-      </View>
+
+        <View className="gap-3.5 pt-1">
+          <AppleStatCard
+            icon="eye-outline"
+            label="Total Profile Visits"
+            value={stats.views}
+            subtitle="Times your web digital card link was opened"
+            iconBgClass="bg-primary/10"
+          />
+
+          <AppleStatCard
+            icon="qr-code-outline"
+            label="QR Code Scans"
+            value={stats.qr_views}
+            subtitle="Scans recorded from physical QR card code"
+            iconBgClass="bg-indigo-500/10"
+          />
+
+          <AppleStatCard
+            icon="download-outline"
+            label="vCard Contact Saves"
+            subtitle="Phone address book contacts exported"
+            value={stats.vcard_saves}
+            iconBgClass="bg-emerald-500/10"
+          />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

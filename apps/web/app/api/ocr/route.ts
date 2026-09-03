@@ -10,16 +10,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
+    const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_VISION_API_KEY;
+
     let extractedLines: string[] = [];
 
-    // 1. If Gemini API Key or Google Vision API Key is present in environment
-    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_VISION_API_KEY;
-
-    if (geminiApiKey) {
+    // 1. Try Gemini Vision AI if API key is provided
+    if (apiKey) {
       try {
-        const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
-        const visionRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -28,7 +28,15 @@ export async function POST(request: Request) {
                 {
                   parts: [
                     {
-                      text: "Extract all text from this paper business card. Return only the raw text lines line by line, nothing else.",
+                      text: `Extract contact information from this business card. Return JSON format only:
+{
+  "name": "Full Name",
+  "designation": "Job Title / Role",
+  "company": "Company Name",
+  "phone": "Phone Number",
+  "email": "Email Address",
+  "website": "Website URL"
+}`,
                     },
                     {
                       inline_data: {
@@ -43,29 +51,64 @@ export async function POST(request: Request) {
           }
         );
 
-        if (visionRes.ok) {
-          const visionData = await visionRes.json();
-          const textOutput = visionData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          const textOutput = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
           if (textOutput) {
+            const jsonMatch = textOutput.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              try {
+                const parsedJson = JSON.parse(jsonMatch[0]);
+                return NextResponse.json({
+                  success: true,
+                  parsed: {
+                    name: parsedJson.name || "",
+                    designation: parsedJson.designation || "",
+                    company: parsedJson.company || "",
+                    phone: parsedJson.phone || "",
+                    email: parsedJson.email || "",
+                    website: parsedJson.website || "",
+                    notes: `Scanned card on ${new Date().toLocaleDateString()}`,
+                    rawText: textOutput,
+                  },
+                });
+              } catch {
+                // Ignore JSON parse error, fallback to line parser
+              }
+            }
             extractedLines = textOutput.split("\n").map((l: string) => l.trim()).filter(Boolean);
           }
         }
       } catch (err) {
-        console.warn("AI Vision OCR fetch failed, falling back to local heuristic parser:", err);
+        console.warn("Gemini Vision API error:", err);
       }
     }
 
-    // 2. Fallback heuristic OCR parsing if AI API key is not configured or failed
+    // 2. Free OCR Engine (OCR.Space API)
     if (extractedLines.length === 0) {
-      // Decode image metadata or basic heuristic response
-      extractedLines = [
-        "Card Contact",
-        "Business Professional",
-        "Corporate Solutions",
-        "+91 98765 43210",
-        "contact@business.com",
-        "www.business.com",
-      ];
+      try {
+        const formData = new URLSearchParams();
+        formData.append("apikey", "helloworld");
+        formData.append("base64Image", `data:image/jpeg;base64,${cleanBase64}`);
+        formData.append("language", "eng");
+        formData.append("isOverlayRequired", "false");
+
+        const ocrSpaceRes = await fetch("https://api.ocr.space/parse/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: formData.toString(),
+        });
+
+        if (ocrSpaceRes.ok) {
+          const ocrData = await ocrSpaceRes.json();
+          const parsedText = ocrData.ParsedResults?.[0]?.ParsedText;
+          if (parsedText) {
+            extractedLines = parsedText.split("\n").map((l: string) => l.trim()).filter(Boolean);
+          }
+        }
+      } catch (err) {
+        console.warn("OCR.Space engine error:", err);
+      }
     }
 
     const parsed = parseBusinessCardText(extractedLines);

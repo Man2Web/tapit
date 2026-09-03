@@ -25,7 +25,7 @@ function IconBadge({
   bgClass: string;
 }) {
   return (
-    <View className={`h-8 w-8 items-center justify-center rounded-lg ${bgClass}`}>
+    <View className={`h-8 w-8 items-center justify-center rounded-xl ${bgClass}`}>
       <Ionicons name={icon} size={18} color={color} />
     </View>
   );
@@ -75,21 +75,26 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-6 px-5 pt-12 pb-12">
-        <Text variant="h3" className="text-2xl font-bold tracking-tight text-foreground">
-          Menu
-        </Text>
+      <ScrollView contentContainerClassName="gap-6 px-5 pt-8 pb-12">
+        <View>
+          <Text variant="h3" className="text-2xl font-bold tracking-tight text-foreground">
+            Settings & Wallet
+          </Text>
+          <Text variant="muted" className="text-xs">
+            App configuration & pass management
+          </Text>
+        </View>
 
         {/* Section 1: Digital Wallet Passes */}
         <View className="gap-2">
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Digital Wallet Passes
           </Text>
-          <View className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm">
             <ListRow
               title="Add to Apple Wallet"
               subtitle="Save pass for offline sharing on iPhone"
-              leading={<IconBadge icon="logo-apple" bgClass="bg-neutral-900" />}
+              leading={<IconBadge icon="logo-apple" bgClass="bg-black" />}
               trailing={<Ionicons name="chevron-forward" size={16} color={colors.muted} />}
               onPress={handleOpenAppleWallet}
               showDivider
@@ -109,11 +114,11 @@ export default function SettingsScreen() {
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Account
           </Text>
-          <View className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm">
             {session?.user.email && (
               <ListRow
                 title={session.user.email}
-                subtitle="Signed in email"
+                subtitle="Signed in account email"
                 leading={<IconBadge icon="mail-outline" bgClass="bg-blue-600" />}
                 showDivider
               />
@@ -132,10 +137,10 @@ export default function SettingsScreen() {
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Danger Zone
           </Text>
-          <View className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm">
             <ListRow
               title="Delete Account"
-              subtitle="Permanently deletes your card and all data"
+              subtitle="Permanently deletes your profile, card & contacts"
               leading={<IconBadge icon="trash-outline" bgClass="bg-rose-600" />}
               trailing={<Ionicons name="chevron-forward" size={16} color={colors.danger} />}
               onPress={() => setDeleteSheetOpen(true)}
@@ -144,30 +149,47 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
+      {/* Delete Account Modal Sheet */}
       <BottomSheet visible={deleteSheetOpen} onClose={() => setDeleteSheetOpen(false)}>
-        <View className="gap-3">
-          <Text variant="h4">Delete your account?</Text>
-          <Text variant="muted">
-            This permanently deletes your card, links, photos, and all data. This can&apos;t be
-            undone.
-          </Text>
+        <View className="gap-4 pb-2">
+          <View className="items-center gap-2 text-center pt-1">
+            <View className="h-14 w-14 items-center justify-center rounded-full bg-rose-500/10">
+              <Ionicons name="trash-outline" size={28} color={colors.danger} />
+            </View>
+            <Text variant="h4" className="text-center font-bold text-foreground">
+              Delete Account?
+            </Text>
+            <Text variant="muted" className="text-center text-xs px-2">
+              This permanently deletes your card, links, photos, and all saved contacts. This action cannot be undone.
+            </Text>
+          </View>
+
           {deleteError && (
-            <View className="flex-row items-center gap-1.5">
+            <View className="flex-row items-center gap-1.5 px-2">
               <Ionicons name="alert-circle" size={16} color={colors.danger} />
-              <Text className="text-sm text-danger">{deleteError}</Text>
+              <Text className="text-xs text-danger">{deleteError}</Text>
             </View>
           )}
-          <Button
-            variant="destructive"
-            icon="trash-outline"
-            onPress={handleConfirmDelete}
-            loading={deleting}
-          >
-            Delete Account
-          </Button>
-          <Button variant="secondary" onPress={() => setDeleteSheetOpen(false)} disabled={deleting}>
-            Cancel
-          </Button>
+
+          <View className="gap-2.5 pt-2">
+            <Button
+              variant="destructive"
+              icon="trash-outline"
+              onPress={handleConfirmDelete}
+              loading={deleting}
+              className="rounded-full py-3.5"
+            >
+              Delete My Account
+            </Button>
+            <Button
+              variant="secondary"
+              onPress={() => setDeleteSheetOpen(false)}
+              disabled={deleting}
+              className="rounded-full py-3"
+            >
+              Cancel
+            </Button>
+          </View>
         </View>
       </BottomSheet>
     </SafeAreaView>

@@ -4,9 +4,15 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ALL_TOGGLE_LINKS, formatCustomLinkValue, type StarterLinkDef } from "@tapit/core";
+import {
+  ALL_TOGGLE_LINKS,
+  WEB_TEMPLATES,
+  formatCustomLinkValue,
+  type StarterLinkDef,
+  type WebTemplateId,
+} from "@tapit/core";
 import type { Database } from "@tapit/types";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar, type AvatarFocusMode } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
@@ -24,7 +30,6 @@ import { supabase } from "@/lib/supabase";
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
 type UsernameCheckStatus = "idle" | "checking" | "available" | "taken" | "invalid";
-// `id` is a stable client-side React key; `savedId` is the profile_links row id once persisted.
 type CustomLinkDraft = { id: string; savedId?: string; label: string; value: string };
 type EditorTab = "display" | "information" | "links";
 type PhotoTarget = "avatar" | "logo";
@@ -76,10 +81,13 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      className={cn("flex-1 items-center rounded-md py-2", active && "bg-primary")}
+      className={cn(
+        "flex-1 items-center rounded-full py-2.5 transition-colors",
+        active ? "bg-primary shadow-xs" : "bg-transparent"
+      )}
     >
       <Text
-        className={cn("text-sm font-medium", active ? "text-primary-foreground" : "text-muted-foreground")}
+        className={cn("text-xs font-bold", active ? "text-white" : "text-muted-foreground")}
       >
         {label}
       </Text>
@@ -96,7 +104,8 @@ export default function EditProfileScreen() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
-  const [avatarOffsetY, setAvatarOffsetY] = useState<number>(0);
+  const [avatarFocusMode, setAvatarFocusMode] = useState<AvatarFocusMode>("head");
+  const [selectedWebTemplate, setSelectedWebTemplate] = useState<WebTemplateId>("executive");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
   const [photoSheetTarget, setPhotoSheetTarget] = useState<PhotoTarget | null>(null);
@@ -146,8 +155,11 @@ export default function EditProfileScreen() {
 
       setProfile(profileData);
       const themeObj = (profileData.theme ?? {}) as Record<string, unknown>;
-      if (typeof themeObj.avatar_offset_y === "number") {
-        setAvatarOffsetY(themeObj.avatar_offset_y);
+      if (typeof themeObj.avatar_focus === "string") {
+        setAvatarFocusMode(themeObj.avatar_focus as AvatarFocusMode);
+      }
+      if (typeof themeObj.template === "string") {
+        setSelectedWebTemplate(themeObj.template as WebTemplateId);
       }
       const [firstFromName, ...restFromName] = profileData.display_name.trim().split(/\s+/);
       setFirstName(profileData.first_name ?? firstFromName ?? "");
@@ -193,9 +205,6 @@ export default function EditProfileScreen() {
     })();
   }, [session]);
 
-  // Loading state set synchronously before the async availability check — React's own
-  // endorsed "fetch in an effect" pattern, not the anti-pattern this rule targets.
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!username || username === originalUsername) {
       setUsernameStatus("idle");
@@ -218,7 +227,6 @@ export default function EditProfileScreen() {
     }, 400);
     return () => clearTimeout(timeout);
   }, [username, originalUsername]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function pickImage(source: "camera" | "library", target: PhotoTarget) {
     setPhotoSheetTarget(null);
@@ -278,7 +286,11 @@ export default function EditProfileScreen() {
     const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
     const existingTheme = (profile.theme ?? {}) as Record<string, unknown>;
-    const updatedTheme = { ...existingTheme, avatar_offset_y: avatarOffsetY };
+    const updatedTheme = {
+      ...existingTheme,
+      avatar_focus: avatarFocusMode,
+      template: selectedWebTemplate,
+    };
 
     const { error: profileError } = await supabase
       .from("profiles")
@@ -317,8 +329,6 @@ export default function EditProfileScreen() {
       if (isEnabled) {
         const value = link.formatValue(raw);
         if (existingId) {
-          // Also backfills `icon` on every save — rows created before the icon column was
-          // populated at insert time would otherwise stay iconless forever.
           await supabase.from("profile_links").update({ value, icon: link.icon }).eq("id", existingId);
         } else {
           await supabase.from("profile_links").insert({
@@ -377,8 +387,6 @@ export default function EditProfileScreen() {
 
   if (!profile) {
     return (
-      // Padding lives on this inner View, not the SafeAreaView — see docs/DECISIONS.md
-      // (SafeAreaView's inline inset style silently overrides className padding).
       <SafeAreaView className="flex-1 bg-background">
         <View className="flex-1 items-center justify-center px-6 pt-12">
           <Text variant="muted" className="text-center">
@@ -391,12 +399,20 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="gap-3 px-6 pt-12">
-        <Text variant="h4" className="text-center">
-          Edit profile
-        </Text>
-        <View className="flex-row gap-1 rounded-md bg-muted p-1">
-          <TabButton label="Display" active={tab === "display"} onPress={() => setTab("display")} />
+      <View className="gap-3 px-5 pt-8">
+        <View className="flex-row items-center justify-between">
+          <Button variant="ghost" size="sm" icon="arrow-back" onPress={() => router.back()}>
+            Back
+          </Button>
+          <Text variant="h4" className="text-base font-bold text-foreground">
+            Edit Profile
+          </Text>
+          <View className="w-12" />
+        </View>
+
+        {/* Segmented Tab Control */}
+        <View className="flex-row gap-1 rounded-full bg-accent/60 p-1 border border-border/50">
+          <TabButton label="Style & Photo" active={tab === "display"} onPress={() => setTab("display")} />
           <TabButton
             label="Information"
             active={tab === "information"}
@@ -408,121 +424,212 @@ export default function EditProfileScreen() {
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 px-6 pb-4 pt-4"
+        contentContainerClassName="gap-5 px-5 pb-6 pt-5"
         keyboardShouldPersistTaps="handled"
       >
         {tab === "display" && (
-          <>
-            <View className="items-center gap-3">
-              <Pressable onPress={() => setPhotoSheetTarget("avatar")}>
-                <Avatar uri={newAvatarUri ?? avatarUrl} size={96} offsetY={avatarOffsetY} />
-              </Pressable>
-              <Text variant="muted" className="text-sm">
-                Change photo
+          <View className="gap-5 pt-1">
+            {/* 1. Web Card Template Selection Module */}
+            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+              <View className="flex-row items-center justify-between border-b border-border/40 pb-3">
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
+                  <Text className="text-base font-bold text-foreground">Web Profile Template</Text>
+                </View>
+                <Text className="text-xs font-semibold text-primary">5 Available</Text>
+              </View>
+
+              <Text variant="muted" className="text-xs">
+                Select the web card template your visitors see when scanning your NFC card or link:
               </Text>
 
+              <View className="gap-2.5 pt-1">
+                {WEB_TEMPLATES.map((tmpl) => {
+                  const isSelected = selectedWebTemplate === tmpl.id;
+                  return (
+                    <Pressable
+                      key={tmpl.id}
+                      onPress={() => setSelectedWebTemplate(tmpl.id)}
+                      className={cn(
+                        "flex-row items-center justify-between rounded-2xl border p-4 transition-all",
+                        isSelected
+                          ? "border-primary bg-primary/10 shadow-xs"
+                          : "border-border/60 bg-background active:bg-accent"
+                      )}
+                    >
+                      <View className="flex-1 gap-1 pr-3">
+                        <View className="flex-row items-center gap-2">
+                          <Text className="text-sm font-bold text-foreground">{tmpl.name}</Text>
+                          {isSelected && (
+                            <View className="rounded-full bg-primary px-2 py-0.5">
+                              <Text className="text-[10px] font-bold text-white uppercase">Selected</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text className="text-xs text-muted-foreground">{tmpl.description}</Text>
+                      </View>
+
+                      <Ionicons
+                        name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                        size={22}
+                        color={isSelected ? colors.primary : colors.muted}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* 2. Profile Photo Module */}
+            <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Profile Photo
+              </Text>
+
+              <Pressable onPress={() => setPhotoSheetTarget("avatar")} className="my-2">
+                <Avatar
+                  uri={newAvatarUri ?? avatarUrl}
+                  size={110}
+                  focusMode={avatarFocusMode}
+                  showEditBadge
+                />
+              </Pressable>
+
+              <Button
+                variant="outline"
+                size="sm"
+                icon="camera-outline"
+                onPress={() => setPhotoSheetTarget("avatar")}
+                className="rounded-full px-5 border-border/70"
+              >
+                Change Profile Photo
+              </Button>
+
+              {/* Photo Framing Mode Segmented Chips */}
               {(newAvatarUri || avatarUrl) && (
-                <View className="mt-1 w-full max-w-xs items-center gap-2 rounded-xl border border-border bg-card p-3 shadow-sm">
+                <View className="mt-2 w-full items-center gap-2 rounded-2xl border border-border/40 bg-accent/30 p-3">
                   <Text className="text-xs font-semibold text-foreground">
-                    Adjust Photo Alignment
+                    Photo Framing Mode
                   </Text>
-                  <View className="flex-row items-center justify-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon="arrow-up"
-                      onPress={() => setAvatarOffsetY((prev) => Math.max(-50, prev - 10))}
+                  <View className="flex-row items-center justify-center gap-1.5 rounded-full bg-background/80 p-1 border border-border/60">
+                    <Pressable
+                      onPress={() => setAvatarFocusMode("head")}
+                      className={cn(
+                        "px-3.5 py-1.5 rounded-full",
+                        avatarFocusMode === "head" ? "bg-primary shadow-xs" : "bg-transparent"
+                      )}
                     >
-                      Up
-                    </Button>
-                    <Button
-                      variant={avatarOffsetY === 0 ? "default" : "ghost"}
-                      size="sm"
-                      onPress={() => setAvatarOffsetY(0)}
+                      <Text className={cn("text-xs font-bold", avatarFocusMode === "head" ? "text-white" : "text-muted-foreground")}>
+                        Focus Head
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setAvatarFocusMode("center")}
+                      className={cn(
+                        "px-3.5 py-1.5 rounded-full",
+                        avatarFocusMode === "center" ? "bg-primary shadow-xs" : "bg-transparent"
+                      )}
                     >
-                      Center
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon="arrow-down"
-                      onPress={() => setAvatarOffsetY((prev) => Math.min(50, prev + 10))}
+                      <Text className={cn("text-xs font-bold", avatarFocusMode === "center" ? "text-white" : "text-muted-foreground")}>
+                        Center
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setAvatarFocusMode("fit")}
+                      className={cn(
+                        "px-3.5 py-1.5 rounded-full",
+                        avatarFocusMode === "fit" ? "bg-primary shadow-xs" : "bg-transparent"
+                      )}
                     >
-                      Down
-                    </Button>
+                      <Text className={cn("text-xs font-bold", avatarFocusMode === "fit" ? "text-white" : "text-muted-foreground")}>
+                        Full Photo
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
               )}
             </View>
 
-            <View className="items-center gap-2">
-              <Pressable onPress={() => setPhotoSheetTarget("logo")}>
-                <Avatar uri={newLogoUri ?? logoUrl} size={72} fallbackIcon="business-outline" />
-              </Pressable>
-              <Text variant="muted" className="text-sm">
-                {newLogoUri ?? logoUrl ? "Change logo" : "Add logo"}
+            {/* 3. Company Logo Module */}
+            <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Company Brand Logo
               </Text>
+
+              <Pressable onPress={() => setPhotoSheetTarget("logo")} className="my-2">
+                <Avatar uri={newLogoUri ?? logoUrl} size={84} fallbackIcon="business-outline" showEditBadge />
+              </Pressable>
+
+              <Button
+                variant="outline"
+                size="sm"
+                icon="image-outline"
+                onPress={() => setPhotoSheetTarget("logo")}
+                className="rounded-full px-5 border-border/70"
+              >
+                {newLogoUri ?? logoUrl ? "Change Company Logo" : "Upload Company Logo"}
+              </Button>
             </View>
-          </>
+          </View>
         )}
 
         {tab === "information" && (
-          <>
+          <View className="gap-4">
             <Field label="First Name">
-              <Input value={firstName} onChangeText={setFirstName} />
+              <Input value={firstName} onChangeText={setFirstName} className="rounded-2xl" />
             </Field>
             <Field label="Last Name">
-              <Input value={lastName} onChangeText={setLastName} />
+              <Input value={lastName} onChangeText={setLastName} className="rounded-2xl" />
             </Field>
             <Field label="Accreditations">
-              <Input placeholder="e.g. MD, PhD" value={accreditations} onChangeText={setAccreditations} />
+              <Input placeholder="e.g. MD, PhD" value={accreditations} onChangeText={setAccreditations} className="rounded-2xl" />
             </Field>
             <Field label="Pronouns">
-              <Input placeholder="e.g. she/her" value={pronouns} onChangeText={setPronouns} />
+              <Input placeholder="e.g. she/her" value={pronouns} onChangeText={setPronouns} className="rounded-2xl" />
             </Field>
 
-            <Text variant="large" className="mt-2">
-              Affiliation
+            <Text variant="large" className="mt-2 font-bold text-foreground">
+              Affiliation & Bio
             </Text>
-            <Field label="Title">
-              <Input value={designation} onChangeText={setDesignation} />
+            <Field label="Title / Position">
+              <Input value={designation} onChangeText={setDesignation} className="rounded-2xl" />
             </Field>
             <Field label="Department">
-              <Input value={department} onChangeText={setDepartment} />
+              <Input value={department} onChangeText={setDepartment} className="rounded-2xl" />
             </Field>
-            <Field label="Organization Name">
-              <Input value={company} onChangeText={setCompany} />
+            <Field label="Company / Organization">
+              <Input value={company} onChangeText={setCompany} className="rounded-2xl" />
             </Field>
-            <Field label="Bio">
+            <Field label="Bio / Slogan">
               <Input
-                placeholder="A line or two about you"
+                placeholder="A line or two about you..."
                 value={bio}
                 onChangeText={setBio}
                 multiline
                 numberOfLines={3}
-                className="min-h-20"
+                className="min-h-20 rounded-2xl"
               />
             </Field>
 
-            <Field label="Profile link">
-              <View className="flex-row items-center rounded-md border border-border px-4 py-3">
-                <Text className="text-muted-foreground">tapit.man2web.in/u/</Text>
+            <Field label="Profile Handle">
+              <View className="flex-row items-center rounded-2xl border border-border px-4 py-3 bg-card">
+                <Text className="text-muted-foreground text-sm font-medium">tapit.man2web.in/u/</Text>
                 <Input
                   value={username}
                   onChangeText={(v) => setUsername(v.toLowerCase())}
                   autoCapitalize="none"
-                  className="flex-1 border-0 p-0"
+                  className="flex-1 border-0 p-0 text-sm text-foreground font-bold"
                 />
               </View>
               {username !== originalUsername && (
                 <UsernameStatus status={usernameStatus} reason={usernameReason} />
               )}
             </Field>
-          </>
+          </View>
         )}
 
         {tab === "links" && (
-          <>
+          <View className="gap-4">
             {(() => {
               const query = linkSearch.trim().toLowerCase();
               const matches = (link: StarterLinkDef) => link.label.toLowerCase().includes(query);
@@ -533,21 +640,21 @@ export default function EditProfileScreen() {
 
               return (
                 <>
-                  <View className="flex-row items-center gap-2 rounded-md border border-border px-4 py-3">
-                    <Ionicons name="search-outline" size={16} color={colors.muted} />
+                  <View className="flex-row items-center gap-2 rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-xs">
+                    <Ionicons name="search-outline" size={18} color={colors.muted} />
                     <Input
-                      placeholder="Search links (e.g. Instagram, UPI)"
+                      placeholder="Search links (Instagram, WhatsApp, LinkedIn...)"
                       value={linkSearch}
                       onChangeText={setLinkSearch}
                       autoCapitalize="none"
-                      className="flex-1 border-0 p-0"
+                      className="flex-1 border-0 p-0 text-sm"
                     />
                   </View>
 
                   {contactMatches.length > 0 && (
                     <>
-                      <Text variant="large" className="mt-2">
-                        Contact & payments{contactCount > 0 ? ` (${contactCount} added)` : ""}
+                      <Text variant="large" className="mt-2 font-bold text-foreground">
+                        Contact & Payments{contactCount > 0 ? ` (${contactCount} active)` : ""}
                       </Text>
                       {contactMatches.map((link) => (
                         <LinkToggleRow
@@ -564,8 +671,8 @@ export default function EditProfileScreen() {
 
                   {socialMatches.length > 0 && (
                     <>
-                      <Text variant="large" className="mt-2">
-                        Social{socialCount > 0 ? ` (${socialCount} added)` : ""}
+                      <Text variant="large" className="mt-2 font-bold text-foreground">
+                        Social Networks{socialCount > 0 ? ` (${socialCount} active)` : ""}
                       </Text>
                       {socialMatches.map((link) => (
                         <LinkToggleRow
@@ -579,21 +686,15 @@ export default function EditProfileScreen() {
                       ))}
                     </>
                   )}
-
-                  {query && contactMatches.length === 0 && socialMatches.length === 0 && (
-                    <Text variant="muted" className="text-sm">
-                      No links match &quot;{linkSearch}&quot;.
-                    </Text>
-                  )}
                 </>
               );
             })()}
 
-            <Text variant="large" className="mt-2">
-              Custom links
+            <Text variant="large" className="mt-2 font-bold text-foreground">
+              Custom Links
             </Text>
             {customLinks.map((draft) => (
-              <Card key={draft.id} className="gap-2">
+              <Card key={draft.id} className="gap-3 rounded-2xl border border-border/60 p-4">
                 <Field label="Label">
                   <View className="flex-row items-center gap-2">
                     <Input
@@ -604,7 +705,7 @@ export default function EditProfileScreen() {
                           prev.map((d) => (d.id === draft.id ? { ...d, label: v } : d)),
                         )
                       }
-                      className="flex-1"
+                      className="flex-1 rounded-xl"
                     />
                     <Button
                       variant="ghost"
@@ -629,6 +730,7 @@ export default function EditProfileScreen() {
                       )
                     }
                     autoCapitalize="none"
+                    className="rounded-xl"
                   />
                 </Field>
               </Card>
@@ -642,18 +744,19 @@ export default function EditProfileScreen() {
                   { id: `new-${customLinkSeq.current++}`, label: "", value: "" },
                 ])
               }
+              className="rounded-full py-3"
             >
-              Add custom link
+              Add Custom Link
             </Button>
-          </>
+          </View>
         )}
       </ScrollView>
 
-      <View className="gap-2 px-6 pb-8 pt-2">
+      <View className="gap-2 px-5 pb-8 pt-2">
         {submitError && (
-          <View className="flex-row items-center gap-1.5">
+          <View className="flex-row items-center gap-1.5 px-1">
             <Ionicons name="alert-circle" size={16} color={colors.danger} />
-            <Text className="text-sm text-danger">{submitError}</Text>
+            <Text className="text-xs text-danger">{submitError}</Text>
           </View>
         )}
 
@@ -662,7 +765,7 @@ export default function EditProfileScreen() {
             variant="secondary"
             icon="close"
             onPress={() => router.replace("/")}
-            className="flex-1"
+            className="flex-1 rounded-full py-3.5"
           >
             Cancel
           </Button>
@@ -672,28 +775,41 @@ export default function EditProfileScreen() {
             onPress={handleSave}
             loading={submitting}
             disabled={!firstName.trim() || (username !== originalUsername && usernameStatus !== "available")}
-            className="flex-1"
+            className="flex-1 rounded-full py-3.5 shadow-sm"
           >
-            Save
+            Save Changes
           </Button>
         </View>
       </View>
 
+      {/* Photo Source Bottom Sheet */}
       <BottomSheet visible={photoSheetTarget !== null} onClose={() => setPhotoSheetTarget(null)}>
-        <View className="gap-2">
-          <Button
-            variant="secondary"
-            icon="camera-outline"
-            onPress={() => pickImage("camera", photoSheetTarget ?? "avatar")}
-          >
-            Take Photo
-          </Button>
-          <Button
-            variant="secondary"
-            icon="images-outline"
-            onPress={() => pickImage("library", photoSheetTarget ?? "avatar")}
-          >
-            Choose from Library
+        <View className="gap-3 pb-2">
+          <Text variant="h4" className="text-center font-bold">
+            {photoSheetTarget === "avatar" ? "Profile Photo" : "Company Logo"}
+          </Text>
+
+          <View className="gap-2.5 pt-2">
+            <Button
+              variant="outline"
+              icon="camera-outline"
+              onPress={() => pickImage("camera", photoSheetTarget ?? "avatar")}
+              className="rounded-full py-3.5 justify-start border-border/70"
+            >
+              Take Photo
+            </Button>
+            <Button
+              variant="outline"
+              icon="images-outline"
+              onPress={() => pickImage("library", photoSheetTarget ?? "avatar")}
+              className="rounded-full py-3.5 justify-start border-border/70"
+            >
+              Choose from Photos Library
+            </Button>
+          </View>
+
+          <Button variant="secondary" onPress={() => setPhotoSheetTarget(null)} className="rounded-full mt-1">
+            Cancel
           </Button>
         </View>
       </BottomSheet>
