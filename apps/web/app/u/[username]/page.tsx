@@ -2,11 +2,11 @@ import { notFound } from "next/navigation";
 import { resolveTheme, type WebTemplateId } from "@tapit/core";
 import { createPublicClient } from "@/lib/supabase/server";
 import {
-  ExecutiveGlassTemplate,
-  MinimalistLightTemplate,
-  AuroraGradientTemplate,
-  CyberBoldTemplate,
-  ObsidianGoldTemplate,
+  AppleMinimalTemplate,
+  ExecutivePassTemplate,
+  ModernGlassTemplate,
+  EditorialSlateTemplate,
+  PaperLinenTemplate,
 } from "./card-templates";
 import { ViewTracker } from "./view-tracker";
 
@@ -41,12 +41,14 @@ export default async function PublicProfilePage({ params }: Props) {
 
   const themeObj = (profile.theme ?? {}) as Record<string, unknown>;
   const theme = resolveTheme(profile.theme);
-  const brandColor = theme.primary || "#8b5cf6";
+  const brandColor = theme.primary || "#0071E3";
 
   const avatarOffsetY = typeof themeObj.avatar_offset_y === "number" ? themeObj.avatar_offset_y : 0;
   const objectPosY = `${Math.min(100, Math.max(0, 50 + avatarOffsetY))}%`;
   const focusMode = typeof themeObj.avatar_focus === "string" ? themeObj.avatar_focus : "head";
-  const templateId = (themeObj.template as WebTemplateId) || (theme.template as WebTemplateId) || "executive";
+  const radiusStyle = typeof themeObj.radius === "string" ? themeObj.radius : "rounded";
+  const densityStyle = typeof themeObj.density === "string" ? themeObj.density : "spacious";
+  const templateId = (themeObj.template as WebTemplateId) || (theme.template as WebTemplateId) || "apple_minimal";
 
   const props = {
     profile,
@@ -54,25 +56,30 @@ export default async function PublicProfilePage({ params }: Props) {
     brandColor,
     objectPosY,
     focusMode,
+    radiusStyle,
+    densityStyle,
   };
+
+  const isLightBackground = templateId === "apple_minimal" || templateId === "paper_linen";
 
   return (
     <main
       style={{ "--brand-color": brandColor } as React.CSSProperties}
       className={`min-h-dvh flex flex-col items-center justify-start pb-32 sm:px-4 sm:py-8 ${
-        templateId === "minimal_light" || templateId === "cyber_bold"
+        isLightBackground
           ? "bg-slate-100 text-slate-900"
-          : "bg-neutral-950 text-neutral-100"
+          : "bg-slate-950 text-slate-100"
       }`}
     >
       <ViewTracker username={profile.username} />
 
-      {templateId === "minimal_light" && <MinimalistLightTemplate {...props} />}
-      {templateId === "aurora_gradient" && <AuroraGradientTemplate {...props} />}
-      {templateId === "cyber_bold" && <CyberBoldTemplate {...props} />}
-      {templateId === "obsidian_gold" && <ObsidianGoldTemplate {...props} />}
-      {(templateId === "executive" || !["minimal_light", "aurora_gradient", "cyber_bold", "obsidian_gold"].includes(templateId)) && (
-        <ExecutiveGlassTemplate {...props} />
+      {templateId === "apple_minimal" && <AppleMinimalTemplate {...props} />}
+      {templateId === "executive_pass" && <ExecutivePassTemplate {...props} />}
+      {templateId === "modern_glass" && <ModernGlassTemplate {...props} />}
+      {templateId === "editorial_slate" && <EditorialSlateTemplate {...props} />}
+      {templateId === "paper_linen" && <PaperLinenTemplate {...props} />}
+      {!["apple_minimal", "executive_pass", "modern_glass", "editorial_slate", "paper_linen"].includes(templateId) && (
+        <AppleMinimalTemplate {...props} />
       )}
     </main>
   );

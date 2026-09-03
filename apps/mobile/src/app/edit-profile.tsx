@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ALL_TOGGLE_LINKS,
+  COLOR_PRESETS,
   WEB_TEMPLATES,
   formatCustomLinkValue,
   type StarterLinkDef,
@@ -105,7 +106,14 @@ export default function EditProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
   const [avatarFocusMode, setAvatarFocusMode] = useState<AvatarFocusMode>("head");
-  const [selectedWebTemplate, setSelectedWebTemplate] = useState<WebTemplateId>("executive");
+
+  // Web Card Customization State
+  const [selectedWebTemplate, setSelectedWebTemplate] = useState<WebTemplateId>("apple_minimal");
+  const [selectedColor, setSelectedColor] = useState<string>("#0071E3");
+  const [customHex, setCustomHex] = useState<string>("");
+  const [selectedRadius, setSelectedRadius] = useState<"rounded" | "pill" | "sharp">("rounded");
+  const [selectedDensity, setSelectedDensity] = useState<"spacious" | "compact">("spacious");
+
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
   const [photoSheetTarget, setPhotoSheetTarget] = useState<PhotoTarget | null>(null);
@@ -161,6 +169,16 @@ export default function EditProfileScreen() {
       if (typeof themeObj.template === "string") {
         setSelectedWebTemplate(themeObj.template as WebTemplateId);
       }
+      if (typeof themeObj.primary === "string") {
+        setSelectedColor(themeObj.primary);
+      }
+      if (typeof themeObj.radius === "string") {
+        setSelectedRadius(themeObj.radius as "rounded" | "pill" | "sharp");
+      }
+      if (typeof themeObj.density === "string") {
+        setSelectedDensity(themeObj.density as "spacious" | "compact");
+      }
+
       const [firstFromName, ...restFromName] = profileData.display_name.trim().split(/\s+/);
       setFirstName(profileData.first_name ?? firstFromName ?? "");
       setLastName(profileData.last_name ?? restFromName.join(" "));
@@ -285,11 +303,16 @@ export default function EditProfileScreen() {
     const newLogoUrl = await uploadImageIfChanged(newLogoUri, "logos", logoUrl);
     const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
+    const activeColor = customHex.trim() ? (customHex.startsWith("#") ? customHex : `#${customHex}`) : selectedColor;
+
     const existingTheme = (profile.theme ?? {}) as Record<string, unknown>;
     const updatedTheme = {
       ...existingTheme,
       avatar_focus: avatarFocusMode,
       template: selectedWebTemplate,
+      primary: activeColor,
+      radius: selectedRadius,
+      density: selectedDensity,
     };
 
     const { error: profileError } = await supabase
@@ -397,6 +420,8 @@ export default function EditProfileScreen() {
     );
   }
 
+  const currentColor = customHex.trim() ? (customHex.startsWith("#") ? customHex : `#${customHex}`) : selectedColor;
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <View className="gap-3 px-5 pt-8">
@@ -412,7 +437,7 @@ export default function EditProfileScreen() {
 
         {/* Segmented Tab Control */}
         <View className="flex-row gap-1 rounded-full bg-accent/60 p-1 border border-border/50">
-          <TabButton label="Style & Photo" active={tab === "display"} onPress={() => setTab("display")} />
+          <TabButton label="Style & Theme" active={tab === "display"} onPress={() => setTab("display")} />
           <TabButton
             label="Information"
             active={tab === "information"}
@@ -429,18 +454,18 @@ export default function EditProfileScreen() {
       >
         {tab === "display" && (
           <View className="gap-5 pt-1">
-            {/* 1. Web Card Template Selection Module */}
+            {/* 1. Authentic Human Apple Templates */}
             <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
               <View className="flex-row items-center justify-between border-b border-border/40 pb-3">
                 <View className="flex-row items-center gap-2">
-                  <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
-                  <Text className="text-base font-bold text-foreground">Web Profile Template</Text>
+                  <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
+                  <Text className="text-base font-bold text-foreground">Human Web Templates</Text>
                 </View>
-                <Text className="text-xs font-semibold text-primary">5 Available</Text>
+                <Text className="text-xs font-semibold text-primary">Apple Standard</Text>
               </View>
 
               <Text variant="muted" className="text-xs">
-                Select the web card template your visitors see when scanning your NFC card or link:
+                Handcrafted, human-designed Apple HIG templates for your public web profile:
               </Text>
 
               <View className="gap-2.5 pt-1">
@@ -460,12 +485,11 @@ export default function EditProfileScreen() {
                       <View className="flex-1 gap-1 pr-3">
                         <View className="flex-row items-center gap-2">
                           <Text className="text-sm font-bold text-foreground">{tmpl.name}</Text>
-                          {isSelected && (
-                            <View className="rounded-full bg-primary px-2 py-0.5">
-                              <Text className="text-[10px] font-bold text-white uppercase">Selected</Text>
-                            </View>
-                          )}
+                          <View className="rounded-full bg-accent px-2 py-0.5 border border-border/60">
+                            <Text className="text-[10px] font-semibold text-muted-foreground">{tmpl.badge}</Text>
+                          </View>
                         </View>
+                        <Text className="text-xs font-medium text-primary/90">{tmpl.subtitle}</Text>
                         <Text className="text-xs text-muted-foreground">{tmpl.description}</Text>
                       </View>
 
@@ -480,7 +504,141 @@ export default function EditProfileScreen() {
               </View>
             </View>
 
-            {/* 2. Profile Photo Module */}
+            {/* 2. Color & Accent Customizer */}
+            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+              <View className="flex-row items-center justify-between border-b border-border/40 pb-3">
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
+                  <Text className="text-base font-bold text-foreground">Brand Color Accent</Text>
+                </View>
+                <View
+                  className="h-5 w-5 rounded-full border border-border/80"
+                  style={{ backgroundColor: currentColor }}
+                />
+              </View>
+
+              <Text variant="muted" className="text-xs">
+                Choose an Apple color palette or type your custom brand hex code:
+              </Text>
+
+              {/* Color Swatches */}
+              <View className="flex-row flex-wrap gap-2.5 pt-1">
+                {COLOR_PRESETS.map((preset) => {
+                  const isSelected = selectedColor === preset.hex && !customHex;
+                  return (
+                    <Pressable
+                      key={preset.id}
+                      onPress={() => {
+                        setSelectedColor(preset.hex);
+                        setCustomHex("");
+                      }}
+                      className={cn(
+                        "flex-row items-center gap-2 rounded-full border px-3.5 py-2",
+                        isSelected ? "border-primary bg-primary/10" : "border-border/60 bg-background"
+                      )}
+                    >
+                      <View className="h-4 w-4 rounded-full" style={{ backgroundColor: preset.hex }} />
+                      <Text className="text-xs font-semibold text-foreground">{preset.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Custom Hex Code */}
+              <View className="mt-2 gap-1.5 pt-2 border-t border-border/40">
+                <Text className="text-xs font-semibold text-foreground">Custom Hex Color</Text>
+                <View className="flex-row items-center gap-2 rounded-2xl border border-border px-4 py-2.5 bg-background">
+                  <Text className="text-muted-foreground font-bold">#</Text>
+                  <Input
+                    placeholder="0071E3"
+                    value={customHex}
+                    onChangeText={(v) => setCustomHex(v.replace("#", ""))}
+                    autoCapitalize="characters"
+                    className="flex-1 border-0 p-0 text-sm font-bold text-foreground"
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* 3. Card Geometry & Layout Customization */}
+            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+              <Text className="text-base font-bold text-foreground">Card Geometry & Style</Text>
+
+              {/* Corner Radius */}
+              <View className="gap-2">
+                <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Corner Radius
+                </Text>
+                <View className="flex-row items-center gap-1.5 rounded-full bg-accent/40 p-1 border border-border/60">
+                  <Pressable
+                    onPress={() => setSelectedRadius("rounded")}
+                    className={cn(
+                      "flex-1 items-center py-2 rounded-full",
+                      selectedRadius === "rounded" ? "bg-primary shadow-xs" : "bg-transparent"
+                    )}
+                  >
+                    <Text className={cn("text-xs font-bold", selectedRadius === "rounded" ? "text-white" : "text-muted-foreground")}>
+                      Rounded
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedRadius("pill")}
+                    className={cn(
+                      "flex-1 items-center py-2 rounded-full",
+                      selectedRadius === "pill" ? "bg-primary shadow-xs" : "bg-transparent"
+                    )}
+                  >
+                    <Text className={cn("text-xs font-bold", selectedRadius === "pill" ? "text-white" : "text-muted-foreground")}>
+                      Pill
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedRadius("sharp")}
+                    className={cn(
+                      "flex-1 items-center py-2 rounded-full",
+                      selectedRadius === "sharp" ? "bg-primary shadow-xs" : "bg-transparent"
+                    )}
+                  >
+                    <Text className={cn("text-xs font-bold", selectedRadius === "sharp" ? "text-white" : "text-muted-foreground")}>
+                      Sharp
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Layout Density */}
+              <View className="gap-2 pt-2">
+                <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Layout Density
+                </Text>
+                <View className="flex-row items-center gap-1.5 rounded-full bg-accent/40 p-1 border border-border/60">
+                  <Pressable
+                    onPress={() => setSelectedDensity("spacious")}
+                    className={cn(
+                      "flex-1 items-center py-2 rounded-full",
+                      selectedDensity === "spacious" ? "bg-primary shadow-xs" : "bg-transparent"
+                    )}
+                  >
+                    <Text className={cn("text-xs font-bold", selectedDensity === "spacious" ? "text-white" : "text-muted-foreground")}>
+                      Spacious
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedDensity("compact")}
+                    className={cn(
+                      "flex-1 items-center py-2 rounded-full",
+                      selectedDensity === "compact" ? "bg-primary shadow-xs" : "bg-transparent"
+                    )}
+                  >
+                    <Text className={cn("text-xs font-bold", selectedDensity === "compact" ? "text-white" : "text-muted-foreground")}>
+                      Compact
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
+            {/* 4. Profile Photo Module */}
             <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
               <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Profile Photo
@@ -550,7 +708,7 @@ export default function EditProfileScreen() {
               )}
             </View>
 
-            {/* 3. Company Logo Module */}
+            {/* 5. Company Logo Module */}
             <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
               <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Company Brand Logo
