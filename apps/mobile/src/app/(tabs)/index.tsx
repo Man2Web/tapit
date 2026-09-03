@@ -23,11 +23,12 @@ import { supabase } from "@/lib/supabase";
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
 
-// tapit.in is still a placeholder domain (see docs/DECISIONS.md) — swap once real and deployed.
+const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || "https://tapit.man2web.in";
+
 // `source` lets the public page's view-tracker attribute the visit correctly — only the QR
 // code should be tagged "qr"; the Share button hands out the plain link.
 function cardUrl(username: string, source?: "qr") {
-  const base = `https://tapit.man2web.in/u/${username}`;
+  const base = `${WEB_BASE_URL}/u/${username}`;
   return source ? `${base}?source=${source}` : base;
 }
 
@@ -217,6 +218,37 @@ export default function CardScreen() {
           >
             Edit Profile
           </Button>
+        </View>
+
+        {/* Digital Wallet Passes Section */}
+        <View className="mt-3 w-full rounded-2xl border border-border bg-card p-4 gap-3">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+            <Text className="text-sm font-semibold text-foreground">Digital Wallet Passes</Text>
+          </View>
+          <Text variant="muted" className="text-xs">
+            Save your business card directly to Apple Wallet or Google Wallet for quick offline sharing.
+          </Text>
+          <View className="flex-row gap-3">
+            <Button
+              variant="outline"
+              icon="logo-apple"
+              onPress={() => Linking.openURL(`${WEB_BASE_URL}/api/wallet/apple/${profile.username}`)}
+              accessibilityLabel="Add to Apple Wallet"
+              className="flex-1 border-neutral-700 bg-neutral-900"
+            >
+              Apple Wallet
+            </Button>
+            <Button
+              variant="outline"
+              icon="wallet-outline"
+              onPress={() => Linking.openURL(`${WEB_BASE_URL}/api/wallet/google/${profile.username}`)}
+              accessibilityLabel="Add to Google Wallet"
+              className="flex-1 border-neutral-700 bg-neutral-900"
+            >
+              Google Wallet
+            </Button>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
