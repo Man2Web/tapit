@@ -118,9 +118,9 @@ export function ProfilePhotoEditor({
   // Aspect Mask Border Radius
   const maskRadiusClass =
     aspectMask === "square"
-      ? "rounded-2xl"
+      ? "rounded-xl"
       : aspectMask === "squircle"
-      ? "rounded-3xl"
+      ? "rounded-2xl"
       : "rounded-full";
 
   // Filter overlay tint styles
@@ -239,12 +239,12 @@ export function ProfilePhotoEditor({
           </View>
 
           {/* Bottom Tool & Slider Controls */}
-          <View className="px-5 pb-6 gap-4 bg-slate-900/90 border-t border-slate-800/80 rounded-t-3xl pt-4">
+          <View className="px-5 pb-6 gap-4 bg-slate-900/90 border-t border-slate-800/80 rounded-t-2xl pt-4">
             {/* 4 Tool Switcher Tabs */}
-            <View className="flex-row items-center gap-1 rounded-full bg-slate-950 p-1 border border-slate-800">
+            <View className="flex-row items-center gap-1 rounded-xl bg-slate-950 p-1 border border-slate-800">
               <Pressable
                 onPress={() => setActiveTab("zoom")}
-                className={`flex-1 items-center py-2 rounded-full ${
+                className={`flex-1 items-center py-2 rounded-lg ${
                   activeTab === "zoom" ? "bg-primary" : "bg-transparent"
                 }`}
               >
@@ -255,7 +255,7 @@ export function ProfilePhotoEditor({
 
               <Pressable
                 onPress={() => setActiveTab("rotate")}
-                className={`flex-1 items-center py-2 rounded-full ${
+                className={`flex-1 items-center py-2 rounded-lg ${
                   activeTab === "rotate" ? "bg-primary" : "bg-transparent"
                 }`}
               >
@@ -266,7 +266,7 @@ export function ProfilePhotoEditor({
 
               <Pressable
                 onPress={() => setActiveTab("mask")}
-                className={`flex-1 items-center py-2 rounded-full ${
+                className={`flex-1 items-center py-2 rounded-lg ${
                   activeTab === "mask" ? "bg-primary" : "bg-transparent"
                 }`}
               >
@@ -277,7 +277,7 @@ export function ProfilePhotoEditor({
 
               <Pressable
                 onPress={() => setActiveTab("filter")}
-                className={`flex-1 items-center py-2 rounded-full ${
+                className={`flex-1 items-center py-2 rounded-lg ${
                   activeTab === "filter" ? "bg-primary" : "bg-transparent"
                 }`}
               >
@@ -448,7 +448,7 @@ export function ProfilePhotoEditor({
             <Button
               icon="checkmark-circle-outline"
               onPress={handleSave}
-              className="w-full py-4 rounded-full shadow-lg mt-1"
+              className="w-full py-4 rounded-xl shadow-xs mt-1"
             >
               Save Profile Photo
             </Button>

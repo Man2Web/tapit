@@ -33,12 +33,14 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: "rgba(0, 0, 0, 0.08)",
           elevation: 0,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
-          paddingTop: 8,
+          paddingTop: 6,
+          paddingBottom: Platform.OS === "ios" ? 8 : 8,
+        },
+        tabBarItemStyle: {
+          paddingBottom: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "700",
           letterSpacing: -0.2,
         },
@@ -47,9 +49,18 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "My Card",
+          title: "Identity",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "card" : "card-outline"} color={color} size={size} />
+            <Ionicons name={focused ? "person-circle" : "person-circle-outline"} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="share"
+        options={{
+          title: "Share",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "share" : "share-outline"} color={color} size={size} />
           ),
         }}
       />
@@ -63,26 +74,28 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="insights"
         options={{
-          title: "You & Settings",
+          title: "Insights",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "person-circle" : "person-circle-outline"} color={color} size={size} />
+            <Ionicons name={focused ? "bar-chart" : "bar-chart-outline"} color={color} size={size} />
           ),
         }}
       />
       <Tabs.Screen
-        name="shop"
+        name="more"
         options={{
-          href: null,
+          title: "More",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "grid" : "grid-outline"} color={color} size={size} />
+          ),
         }}
       />
-      <Tabs.Screen
-        name="insights"
-        options={{
-          href: null,
-        }}
-      />
+      {/* Hidden routes — accessible via stack navigation, not tab bar */}
+      <Tabs.Screen name="devices" options={{ href: null }} />
+      <Tabs.Screen name="teams" options={{ href: null }} />
+      <Tabs.Screen name="shop" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
 }

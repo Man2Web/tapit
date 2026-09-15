@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, View } from "react-native";
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import type { Database } from "@tapit/types";
-import { linkDisplayValue } from "@tapit/core";
 import { Avatar, type AvatarFocusMode } from "@/components/ui/avatar";
 import { Text } from "@/components/ui/text";
 import { colors } from "@/lib/colors";
@@ -30,7 +28,7 @@ type IdentityStudioCanvasProps = {
 export function IdentityStudioCanvas({
   profile,
   links,
-  brandColor = "#2563EB",
+  brandColor = "#0071E3",
   focusMode = "center",
   onEditPress,
 }: IdentityStudioCanvasProps) {
@@ -44,55 +42,69 @@ export function IdentityStudioCanvas({
   const aspectMask = typeof themeObj.avatar_aspect_mask === "string" ? themeObj.avatar_aspect_mask : undefined;
   const colorFilter = typeof themeObj.avatar_color_filter === "string" ? themeObj.avatar_color_filter : undefined;
 
+  const bannerColor =
+    (typeof themeObj.banner_color === "string" ? themeObj.banner_color : undefined) ??
+    (typeof themeObj.primary === "string" ? themeObj.primary : undefined) ??
+    brandColor ??
+    "#0071E3";
+
   // Native Device Wallet Pass Detection
   const isIOS = Platform.OS === "ios";
   const walletUrl = isIOS
     ? `${WEB_BASE_URL}/api/wallet/apple/${profile.username}`
     : `${WEB_BASE_URL}/api/wallet/google/${profile.username}`;
-  const walletLabel = isIOS ? "Apple Wallet" : "Google Wallet";
+  const walletLabel = isIOS ? "Add to Apple Wallet" : "Add to Google Wallet";
   const walletIcon: React.ComponentProps<typeof Ionicons>["name"] = isIOS
     ? "logo-apple"
     : "wallet-outline";
 
   return (
-    <View className="w-full rounded-[32px] border border-border/70 bg-card overflow-hidden shadow-md">
-      {/* 🖼️ Cover Banner Header */}
+    <View className="w-full max-w-[360px] rounded-2xl border border-border bg-card overflow-hidden shadow-md">
+      {/* 💳 Top Header Banner (Apple Pass Aesthetic) */}
       <View
         className="relative h-36 w-full items-center justify-between p-4"
         style={{
-          backgroundColor: brandColor,
+          backgroundColor: bannerColor,
         }}
       >
-        {/* Subtle Ambient Vignette Overlay */}
-        <View className="absolute inset-0 bg-black/20" />
+        {/* Subtle Overlay Highlight */}
+        <View className="absolute inset-0 bg-black/10" />
 
-        {/* Top Header Bar Overlay */}
+        {/* Top Header Overlay Row */}
         <View className="flex-row items-center justify-between w-full z-10">
-          {/* Active NFC Chip Pill */}
-          <View className="flex-row items-center gap-1.5 rounded-full bg-black/40 px-3 py-1 border border-white/20 backdrop-blur-md">
+          {/* Active NFC Chip Badge */}
+          <View className="flex-row items-center gap-1.5 rounded-full bg-black/40 px-3 py-1 border border-white/20">
             <View className="h-2 w-2 rounded-full bg-emerald-400" />
-            <Text className="text-[10px] font-bold text-white uppercase tracking-wider">
-              NFC ACTIVE
+            <Text className="text-[10px] font-bold text-white uppercase tracking-widest">
+              NFC Active
             </Text>
           </View>
 
           {/* Quick Edit Action Button */}
           <Pressable
             onPress={onEditPress}
-            className="h-9 w-9 items-center justify-center rounded-full bg-black/40 border border-white/20 backdrop-blur-md active:scale-95"
+            className="h-8 w-8 items-center justify-center rounded-full bg-black/40 border border-white/20 active:bg-black/60"
           >
-            <Ionicons name="create-outline" size={16} color="white" />
+            <Ionicons name="pencil" size={14} color="white" />
           </Pressable>
+        </View>
+
+        {/* Bottom Banner Branding Watermark */}
+        <View className="w-full flex-row items-center justify-between z-10 pb-1">
+          <Text className="text-[11px] font-bold text-white/80 uppercase tracking-widest font-mono">
+            TAPIT IDENTITY PASS
+          </Text>
+          <Ionicons name="hardware-chip-outline" size={20} color="rgba(255,255,255,0.8)" />
         </View>
       </View>
 
-      {/* 👤 Overlapping Avatar & Studio Info Container */}
-      <View className="px-6 pb-6 pt-0 relative">
-        <View className="flex-row items-end justify-between -mt-12 mb-3">
-          <View className="relative border-4 border-card rounded-full shadow-lg bg-card">
+      {/* 👤 Pass Details & Interactive Segmented Controls */}
+      <View className="px-5 pb-5 pt-0 relative">
+        <View className="flex-row items-end justify-between -mt-10 mb-3.5 z-20">
+          <View className="relative border-4 border-card rounded-full shadow-md bg-card">
             <Avatar
               uri={profile.avatar_url}
-              size={88}
+              size={82}
               focusMode={focusMode}
               zoom={zoom}
               panX={panX}
@@ -103,45 +115,45 @@ export function IdentityStudioCanvas({
             />
           </View>
 
-          {/* 2-State Segmented Control Switcher */}
-          <View className="flex-row items-center gap-1 rounded-full bg-accent/80 p-1 border border-border/60 mb-1">
+          {/* Authentic iOS Segmented Control Switcher */}
+          <View className="flex-row items-center rounded-full bg-secondary/80 p-1 border border-border/50">
             <Pressable
               onPress={() => setActiveMode("profile")}
-              className={`px-3 py-1.5 rounded-full transition-all ${
-                activeMode === "profile" ? "bg-primary shadow-xs" : "bg-transparent"
+              className={`px-3.5 py-1.5 rounded-full transition-all ${
+                activeMode === "profile" ? "bg-card shadow-xs" : "bg-transparent"
               }`}
             >
-              <Text className={`text-xs font-bold ${activeMode === "profile" ? "text-white" : "text-muted-foreground"}`}>
-                Card
+              <Text className={`text-xs font-bold ${activeMode === "profile" ? "text-foreground" : "text-muted-foreground"}`}>
+                Pass
               </Text>
             </Pressable>
 
             <Pressable
               onPress={() => setActiveMode("qr")}
-              className={`px-3 py-1.5 rounded-full transition-all ${
-                activeMode === "qr" ? "bg-primary shadow-xs" : "bg-transparent"
+              className={`px-3.5 py-1.5 rounded-full transition-all ${
+                activeMode === "qr" ? "bg-card shadow-xs" : "bg-transparent"
               }`}
             >
-              <Text className={`text-xs font-bold ${activeMode === "qr" ? "text-white" : "text-muted-foreground"}`}>
-                QR Pass
+              <Text className={`text-xs font-bold ${activeMode === "qr" ? "text-foreground" : "text-muted-foreground"}`}>
+                QR Code
               </Text>
             </Pressable>
           </View>
         </View>
 
         {activeMode === "profile" ? (
-          /* PROFILE DETAILS & SOCIAL CHIPS */
-          <View className="gap-3">
+          /* PROFILE DETAILS & CONNECTED CHANNELS */
+          <View className="gap-3.5">
             <View className="gap-0.5">
               <View className="flex-row items-center gap-1.5">
-                <Text className="text-2xl font-black text-foreground tracking-tight">
+                <Text className="text-xl font-bold text-foreground tracking-tight">
                   {profile.display_name}
                 </Text>
-                <Ionicons name="checkmark-circle" size={18} color={brandColor} />
+                <Ionicons name="checkmark-circle" size={18} color={bannerColor || brandColor} />
               </View>
 
               {profile.designation && (
-                <Text className="text-sm font-semibold text-foreground/80">
+                <Text className="text-xs font-semibold text-muted-foreground">
                   {profile.designation}
                   {profile.company ? ` • ${profile.company}` : ""}
                 </Text>
@@ -149,16 +161,16 @@ export function IdentityStudioCanvas({
             </View>
 
             {profile.bio && (
-              <Text className="text-xs text-muted-foreground italic leading-relaxed" numberOfLines={2}>
-                "{profile.bio}"
+              <Text className="text-xs text-muted-foreground leading-relaxed" numberOfLines={2}>
+                &quot;{profile.bio}&quot;
               </Text>
             )}
 
-            {/* 🔗 Active Social Channel Chips (Horizontal Scroll) */}
+            {/* Active Channels Grid */}
             {links.length > 0 && (
-              <View className="pt-2 gap-1.5">
-                <Text className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Connected Channels ({links.length})
+              <View className="pt-1 gap-1.5">
+                <Text className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Active Channels ({links.length})
                 </Text>
                 <ScrollView
                   horizontal
@@ -169,65 +181,65 @@ export function IdentityStudioCanvas({
                     <Pressable
                       key={link.id}
                       onPress={() => Linking.openURL(link.value)}
-                      className="flex-row items-center gap-2 rounded-full border border-border/80 bg-accent/50 px-3.5 py-2 active:bg-accent"
+                      className="flex-row items-center gap-2 rounded-full border border-border/60 bg-secondary/60 px-3.5 py-1.5 active:bg-secondary"
                     >
                       <Ionicons
                         name={(link.icon ?? "link-outline") as React.ComponentProps<typeof Ionicons>["name"]}
                         size={14}
-                        color={brandColor}
+                        color={colors.primary}
                       />
-                      <Text className="text-xs font-bold text-foreground">{link.label}</Text>
+                      <Text className="text-xs font-semibold text-foreground">{link.label}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
               </View>
             )}
 
-            {/* Handle URL */}
-            <View className="flex-row items-center justify-between border-t border-border/40 pt-3.5 mt-1">
+            {/* Handle Footer */}
+            <View className="flex-row items-center justify-between border-t border-border/40 pt-3 mt-1">
               <Text className="text-xs font-mono text-muted-foreground">
                 tapit.man2web.in/u/{profile.username}
               </Text>
               <Pressable onPress={() => setActiveMode("qr")} className="flex-row items-center gap-1">
-                <Ionicons name="qr-code-outline" size={14} color={brandColor} />
+                <Ionicons name="qr-code-outline" size={14} color={colors.primary} />
                 <Text className="text-xs font-bold text-primary">Show QR</Text>
               </Pressable>
             </View>
           </View>
         ) : (
-          /* QR CODE PASS STAGE */
-          <View className="items-center text-center gap-4 py-2">
+          /* QR CODE STAGE */
+          <View className="items-center text-center gap-3.5 py-1">
             <View className="flex-row items-center justify-between w-full border-b border-border/40 pb-2">
-              <Text className="text-xs font-mono font-bold text-muted-foreground uppercase tracking-wider">
+              <Text className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">
                 ID // TAPIT-{profile.username.toUpperCase()}
               </Text>
               <Pressable onPress={() => setActiveMode("profile")} className="p-1">
-                <Ionicons name="close-circle-outline" size={20} color={colors.muted} />
+                <Ionicons name="close-circle-outline" size={18} color={colors.muted} />
               </Pressable>
             </View>
 
-            <View className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-md my-1">
-              <QRCode value={cardUrl(profile.username, "qr")} size={160} />
+            <View className="p-4 bg-white rounded-2xl border border-border shadow-xs my-1">
+              <QRCode value={cardUrl(profile.username, "qr")} size={156} />
             </View>
 
-            <Text className="text-xs text-center text-muted-foreground px-4">
-              Scan code to view profile, save contact, or download wallet pass.
+            <Text className="text-xs text-center text-muted-foreground px-2">
+              Scan code to open digital contact card or save pass to wallet.
             </Text>
 
-            <View className="flex-row gap-2.5 w-full pt-1">
+            <View className="flex-row gap-2 w-full pt-1">
               <Pressable
                 onPress={() => Linking.openURL(walletUrl)}
-                className="flex-1 flex-row items-center justify-center gap-2 rounded-full border border-border/80 bg-accent/60 py-2.5 active:bg-accent"
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 shadow-xs active:bg-secondary"
               >
-                <Ionicons name={walletIcon} size={16} color={colors.foreground} />
+                <Ionicons name={walletIcon} size={15} color={colors.foreground} />
                 <Text className="text-xs font-semibold text-foreground">{walletLabel}</Text>
               </Pressable>
 
               <Pressable
                 onPress={() => Linking.openURL(`${WEB_BASE_URL}/api/vcard/${profile.username}`)}
-                className="flex-1 flex-row items-center justify-center gap-2 rounded-full border border-border/80 bg-accent/60 py-2.5 active:bg-accent"
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 shadow-xs active:bg-secondary"
               >
-                <Ionicons name="download-outline" size={16} color={colors.foreground} />
+                <Ionicons name="download-outline" size={15} color={colors.foreground} />
                 <Text className="text-xs font-semibold text-foreground">Save vCard</Text>
               </Pressable>
             </View>

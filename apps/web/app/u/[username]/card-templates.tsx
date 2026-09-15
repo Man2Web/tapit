@@ -9,6 +9,7 @@ type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
 export type TemplateProps = {
   profile: Profile;
   links: ProfileLink[];
+  blocks?: any[];
   brandColor: string;
   objectPosY: string;
   focusMode: string;
@@ -130,7 +131,7 @@ export function AppleMinimalTemplate({
 
           {profile.company && (
             <p className="text-sm font-medium text-slate-500 flex items-center gap-1.5 pt-0.5">
-              <span>🏢</span> {profile.company}
+              <svg className="w-4 h-4 opacity-70 shrink-0 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V9a2 2 0 012-2h2a2 2 0 012 2v12m-6 0v-4a2 2 0 012-2h2a2 2 0 012 2v4" /></svg> {profile.company}
             </p>
           )}
         </div>
@@ -286,7 +287,7 @@ export function ExecutivePassTemplate({
 
           {profile.company && (
             <p className="text-sm font-medium text-slate-400 flex items-center gap-1.5">
-              <span>🏢</span> {profile.company}
+              <svg className="w-4 h-4 opacity-70 shrink-0 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V9a2 2 0 012-2h2a2 2 0 012 2v12m-6 0v-4a2 2 0 012-2h2a2 2 0 012 2v4" /></svg> {profile.company}
             </p>
           )}
         </div>
@@ -417,7 +418,11 @@ export function ModernGlassTemplate({
             </div>
           )}
 
-          {profile.company && <p className="text-sm font-medium text-slate-300">🏢 {profile.company}</p>}
+          {profile.company && (
+            <p className="text-sm font-medium text-slate-300 flex items-center gap-1.5">
+              <svg className="w-4 h-4 opacity-70 shrink-0 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V9a2 2 0 012-2h2a2 2 0 012 2v12m-6 0v-4a2 2 0 012-2h2a2 2 0 012 2v4" /></svg> {profile.company}
+            </p>
+          )}
         </div>
 
         {profile.bio && (
@@ -689,6 +694,117 @@ export function PaperLinenTemplate({
             <img src={`/api/qr/${profile.username}`} alt="QR" width={110} height={110} className="h-[110px] w-[110px]" />
           </div>
           <p className="text-xs font-medium text-[#7A6F65]">Scan Linen Card Pass</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function GradientAuroraTemplate(props: TemplateProps) {
+  const { profile, links, blocks = [], brandColor, objectPosY, radiusStyle, densityStyle } = props;
+  const affiliationLines = [
+    profile.designation,
+    profile.department,
+  ].filter(Boolean) as string[];
+
+  const containerRadius = getRadiusClass(radiusStyle);
+  const padding = getPaddingClass(densityStyle);
+
+  return (
+    <div className="w-full max-w-md mx-auto pt-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+      <div 
+        className={`w-full overflow-hidden bg-card text-card-foreground border border-border shadow-lg relative ${containerRadius}`}
+      >
+        {/* Photo Header */}
+        {profile.avatar_url && (
+          <div className="w-full aspect-square relative z-0 bg-muted">
+            <img
+              src={profile.avatar_url}
+              alt={profile.display_name}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: `50% ${objectPosY}` }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+          </div>
+        )}
+
+        <div className={`relative z-10 -mt-24 ${padding} ${containerRadius}`}>
+          {/* Identity Section */}
+          <div className="space-y-1 text-center">
+            <h1 className="text-3xl font-bold tracking-tight text-card-foreground">
+              {profile.display_name}
+            </h1>
+            
+            {affiliationLines.length > 0 && (
+              <p className="text-sm font-medium text-muted-foreground">
+                {affiliationLines.join(" • ")}
+              </p>
+            )}
+
+            {profile.company && (
+              <p className="text-sm font-semibold mt-1" style={{ color: brandColor }}>
+                {profile.company}
+              </p>
+            )}
+          </div>
+
+          {/* Bio */}
+          {profile.bio && (
+            <p className="mt-6 text-center text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+              {profile.bio}
+            </p>
+          )}
+
+          {/* Blocks */}
+          {blocks.length > 0 && (
+            <div className="mt-8 space-y-3">
+              {blocks.map((block) => {
+                if (block.block_type === 'cta') {
+                  return (
+                    <a
+                      key={block.id}
+                      href={block.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full py-4 px-6 text-center font-bold text-primary-foreground shadow-sm transition-transform active:scale-95"
+                      style={{ backgroundColor: brandColor, borderRadius: '16px' }}
+                    >
+                      {block.data.action_label || block.title}
+                    </a>
+                  );
+                }
+                
+                return (
+                  <div key={block.id} className="p-4 bg-muted/40 border border-border rounded-2xl flex items-center justify-between">
+                    <div className="text-card-foreground font-medium">{block.title}</div>
+                    {block.data.url && (
+                      <a href={block.data.url} target="_blank" rel="noopener noreferrer" className="text-sm" style={{ color: brandColor }}>View</a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Links List */}
+          {links.length > 0 && (
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              {links.map((link) => (
+                <a
+                  key={link.id}
+                  href={`/api/click?id=${link.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2 p-4 bg-muted/40 border border-border rounded-2xl hover:bg-muted transition-colors"
+                >
+                  <div className="h-10 w-10 flex items-center justify-center rounded-full bg-background text-card-foreground shadow-sm">
+                    <LinkIcon icon={link.icon} size={20} />
+                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground">{link.label}</span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

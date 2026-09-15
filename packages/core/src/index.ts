@@ -4,5 +4,4 @@ export * from "./vcard";
 export * from "./wallet";
 export * from "./ocr";
 export * from "./followup";
-
-
+export * from "./blocks";

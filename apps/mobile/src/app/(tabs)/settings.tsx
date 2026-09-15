@@ -84,7 +84,7 @@ export default function SettingsScreen() {
         <View className="flex-row items-center justify-between">
           <View>
             <Text variant="h3" className="text-2xl font-bold tracking-tight text-foreground">
-              You & Settings
+              Settings & Account
             </Text>
             <Text variant="muted" className="text-xs">
               Account preferences, hardware store & wallet passes
@@ -92,16 +92,16 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* 👤 Hero User Profile Card */}
+        {/* User Profile Card */}
         {profile && (
           <Pressable
             onPress={() => router.push("/edit-profile")}
-            className="flex-row items-center justify-between rounded-3xl border border-border/60 bg-card p-4 shadow-xs active:bg-accent"
+            className="flex-row items-center justify-between rounded-xl border border-border bg-card p-3.5 shadow-xs active:bg-secondary"
           >
             <View className="flex-row items-center gap-3.5">
               <Avatar
                 uri={profile.avatar_url}
-                size={64}
+                size={56}
                 focusMode={typeof (profile.theme as any)?.avatar_focus === "string" ? (profile.theme as any).avatar_focus : "center"}
                 zoom={typeof (profile.theme as any)?.avatar_zoom === "number" ? (profile.theme as any).avatar_zoom : undefined}
                 panX={typeof (profile.theme as any)?.avatar_pan_x === "number" ? (profile.theme as any).avatar_pan_x : undefined}
@@ -118,18 +118,18 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
-              <Ionicons name="create-outline" size={18} color={colors.primary} />
+            <View className="h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+              <Ionicons name="create-outline" size={16} color={colors.primary} />
             </View>
           </Pressable>
         )}
 
-        {/* 📊 Analytics & Health Activity Rings */}
+        {/* Analytics & Activity */}
         <View className="gap-2">
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Telemetry & Insights
+            Analytics & Activity
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+          <View className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             <ListRow
               title="Analytics Overview"
               subtitle="View total profile visits, QR scans & vCard saves"
@@ -145,7 +145,7 @@ export default function SettingsScreen() {
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Digital Wallet Passes
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+          <View className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             {isIOS ? (
               <>
                 <ListRow
@@ -191,7 +191,7 @@ export default function SettingsScreen() {
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             NFC Hardware Store
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+          <View className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             <ListRow
               title="Order Physical NFC Cards"
               subtitle="Executive Titanium, Bamboo & Polycarbonate Cards"
@@ -207,7 +207,7 @@ export default function SettingsScreen() {
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Account Management
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+          <View className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             {session?.user.email && (
               <ListRow
                 title={session.user.email}
@@ -230,7 +230,7 @@ export default function SettingsScreen() {
           <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Danger Zone
           </Text>
-          <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
+          <View className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             <ListRow
               title="Delete Account"
               subtitle="Permanently deletes your profile, card & contacts"
@@ -246,7 +246,7 @@ export default function SettingsScreen() {
       <BottomSheet visible={deleteSheetOpen} onClose={() => setDeleteSheetOpen(false)}>
         <View className="gap-4 pb-2">
           <View className="items-center gap-2 text-center pt-1">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-rose-500/10">
+            <View className="h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10">
               <Ionicons name="trash-outline" size={28} color={colors.danger} />
             </View>
             <Text variant="h4" className="text-center font-bold text-foreground">
@@ -270,7 +270,7 @@ export default function SettingsScreen() {
               icon="trash-outline"
               onPress={handleConfirmDelete}
               loading={deleting}
-              className="rounded-full py-3.5"
+              className="rounded-xl py-3.5"
             >
               Delete My Account
             </Button>
@@ -278,7 +278,7 @@ export default function SettingsScreen() {
               variant="secondary"
               onPress={() => setDeleteSheetOpen(false)}
               disabled={deleting}
-              className="rounded-full py-3"
+              className="rounded-xl py-3"
             >
               Cancel
             </Button>

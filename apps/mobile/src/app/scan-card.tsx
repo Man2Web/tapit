@@ -305,22 +305,22 @@ export default function ScanCardScreen() {
             Back
           </Button>
           <Text variant="h4" className="text-base font-bold">
-            AI Card Scanner
+            Business Card Scanner
           </Text>
           <View className="w-12" />
         </View>
 
         {/* Capture / Picker Buttons */}
         {!imageUri ? (
-          <View className="items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-border/80 p-8 bg-card shadow-sm mt-4">
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+          <View className="items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border p-8 bg-card shadow-xs mt-4">
+            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
               <Ionicons name="camera-outline" size={32} color={colors.primary} />
             </View>
             <Text variant="h4" className="text-center">
               Scan Paper Business Card
             </Text>
             <Text variant="muted" className="text-center text-xs">
-              Take a photo or upload a card image. Our smart AI will instantly extract details.
+              Take a photo or upload a card image to automatically extract contact details.
             </Text>
 
             <View className="w-full gap-2.5 pt-2">
@@ -340,7 +340,7 @@ export default function ScanCardScreen() {
         ) : (
           <View className="gap-5">
             {/* Image Preview */}
-            <View className="relative overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+            <View className="relative overflow-hidden rounded-xl border border-border bg-card shadow-xs">
               <Image source={{ uri: imageUri }} className="h-44 w-full object-cover" />
               <Button
                 variant="secondary"
@@ -350,7 +350,7 @@ export default function ScanCardScreen() {
                   setImageUri(null);
                   setCardData(null);
                 }}
-                className="absolute right-3 top-3 rounded-full bg-background/80 px-3 backdrop-blur-md"
+                className="absolute right-3 top-3 rounded-lg bg-background/90 px-3 border border-border"
               >
                 Rescan
               </Button>
@@ -365,9 +365,9 @@ export default function ScanCardScreen() {
                 </Text>
               </View>
             ) : cardData ? (
-              <View className="gap-4 rounded-3xl border border-border/80 bg-card p-5 shadow-sm">
+              <View className="gap-4 rounded-xl border border-border bg-card p-5 shadow-xs">
                 <View className="flex-row items-center gap-2 border-b border-border/50 pb-3">
-                  <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
+                  <Ionicons name="card-outline" size={20} color={colors.primary} />
                   <Text className="text-base font-bold text-foreground">Extracted Information</Text>
                 </View>
 
@@ -435,7 +435,7 @@ export default function ScanCardScreen() {
                     icon="checkmark-done-outline"
                     onPress={handleSaveLead}
                     loading={saving}
-                    className="rounded-full py-3.5"
+                    className="rounded-xl py-3.5"
                   >
                     Save to App Contacts
                   </Button>
@@ -445,7 +445,7 @@ export default function ScanCardScreen() {
                     icon="person-add-outline"
                     onPress={handleSaveToPhoneContacts}
                     loading={savingToPhone}
-                    className="rounded-full py-3.5 border-border/80"
+                    className="rounded-xl py-3.5 border-border/80"
                   >
                     Save to Mobile Address Book
                   </Button>

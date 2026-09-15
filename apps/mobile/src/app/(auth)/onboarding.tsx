@@ -62,13 +62,10 @@ export default function OnboardingScreen() {
   }
 
   useEffect(() => {
-    if (!username) {
-      setUsernameStatus("idle");
-      return;
-    }
-    setUsernameStatus("checking");
+    if (!username) return;
     const seq = ++checkSeq.current;
     const timeout = setTimeout(async () => {
+      setUsernameStatus("checking");
       const { data, error } = await supabase.rpc("is_username_available", {
         check_username: username,
       });

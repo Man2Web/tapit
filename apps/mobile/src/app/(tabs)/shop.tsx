@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
+import { Alert, Linking, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/button";
@@ -60,10 +59,7 @@ const PRODUCTS: Product[] = [
 ];
 
 export default function ShopScreen() {
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-
   function handleOrder(product: Product) {
-    setSelectedProduct(product.id);
     Alert.alert(
       `Order ${product.name}`,
       `Would you like to visit the official Tapit Store to order your custom ${product.name}?`,
@@ -92,12 +88,12 @@ export default function ShopScreen() {
             <Text variant="h2" className="text-2xl font-bold tracking-tight text-foreground">
               Hardware Store
             </Text>
-            <View className="rounded-full bg-primary/10 px-3 py-1 border border-primary/20">
+            <View className="rounded-lg bg-primary/10 px-3 py-1 border border-primary/20">
               <Text className="text-xs font-bold text-primary">Official Gear</Text>
             </View>
           </View>
           <Text variant="muted" className="text-sm">
-            Elevate your networking with authentic Apple HIG custom NFC cards and tags.
+            Physical NFC cards, smart tags, and networking hardware for instant contact sharing.
           </Text>
         </View>
 
@@ -106,12 +102,12 @@ export default function ShopScreen() {
           {PRODUCTS.map((product) => (
             <Card
               key={product.id}
-              className="overflow-hidden rounded-3xl border border-border/60 p-0 shadow-md bg-card"
+              className="overflow-hidden rounded-xl border border-border p-0 shadow-xs bg-card"
             >
               {/* Product Visual Banner */}
               <View className={`h-40 w-full ${product.colorBg} p-5 justify-between border-b`}>
                 <View className="flex-row items-center justify-between">
-                  <View className="rounded-full bg-white/20 px-3 py-1 backdrop-blur-md">
+                  <View className="rounded-md bg-white/20 px-2.5 py-1">
                     <Text className="text-[11px] font-bold text-white uppercase tracking-wider">
                       {product.badge}
                     </Text>
@@ -151,7 +147,7 @@ export default function ShopScreen() {
                   <Button
                     icon="bag-check-outline"
                     onPress={() => handleOrder(product)}
-                    className="rounded-full px-6 shadow-xs"
+                    className="rounded-xl px-5 shadow-xs"
                   >
                     Configure & Order
                   </Button>

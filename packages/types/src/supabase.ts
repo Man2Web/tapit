@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           designation: string | null
           email: string | null
+          follow_up_at: string | null
           id: string
           meta: Json | null
           name: string | null
@@ -34,6 +35,7 @@ export type Database = {
           created_at?: string
           designation?: string | null
           email?: string | null
+          follow_up_at?: string | null
           id?: string
           meta?: Json | null
           name?: string | null
@@ -48,6 +50,7 @@ export type Database = {
           created_at?: string
           designation?: string | null
           email?: string | null
+          follow_up_at?: string | null
           id?: string
           meta?: Json | null
           name?: string | null
@@ -109,6 +112,7 @@ export type Database = {
           },
         ]
       }
+
       profile_links: {
         Row: {
           click_count: number | null
@@ -282,11 +286,208 @@ export type Database = {
         }
         Relationships: []
       }
+      nfc_devices: {
+        Row: {
+          id: string
+          owner_id: string
+          profile_id: string | null
+          device_name: string
+          device_type: string
+          nfc_uid: string | null
+          status: string
+          last_tapped_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          profile_id?: string | null
+          device_name: string
+          device_type?: string
+          nfc_uid?: string | null
+          status?: string
+          last_tapped_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          profile_id?: string | null
+          device_name?: string
+          device_type?: string
+          nfc_uid?: string | null
+          status?: string
+          last_tapped_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profile_blocks: {
+        Row: {
+          id: string
+          profile_id: string
+          block_type: string
+          title: string
+          data: Json
+          position: number
+          is_visible: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          block_type: string
+          title: string
+          data?: Json
+          position?: number
+          is_visible?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          block_type?: string
+          title?: string
+          data?: Json
+          position?: number
+          is_visible?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_blocks_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smart_qr_codes: {
+        Row: {
+          id: string
+          owner_id: string
+          profile_id: string | null
+          qr_name: string
+          destination_type: string
+          destination_url: string
+          scan_count: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          profile_id?: string | null
+          qr_name: string
+          destination_type?: string
+          destination_url: string
+          scan_count?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          profile_id?: string | null
+          qr_name?: string
+          destination_type?: string
+          destination_url?: string
+          scan_count?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workspaces: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          owner_id: string
+          logo_url: string | null
+          brand_colors: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          owner_id: string
+          logo_url?: string | null
+          brand_colors?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          owner_id?: string
+          logo_url?: string | null
+          brand_colors?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workspace_members: {
+        Row: {
+          id: string
+          workspace_id: string
+          user_id: string
+          role: string
+          job_title: string | null
+          department: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          user_id: string
+          role?: string
+          job_title?: string | null
+          department?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          user_id?: string
+          role?: string
+          job_title?: string | null
+          department?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      delete_lead: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       delete_own_account: { Args: never; Returns: undefined }
       get_profile_insights: {
         Args: never
@@ -294,6 +495,15 @@ export type Database = {
           qr_views: number
           vcard_saves: number
           views: number
+        }[]
+      }
+      get_profile_insights_range: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          views: number
+          qr_views: number
+          vcard_saves: number
+          link_clicks: number
         }[]
       }
       is_username_available: {

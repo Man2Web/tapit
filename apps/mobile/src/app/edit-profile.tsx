@@ -6,13 +6,16 @@ import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   COLOR_PRESETS,
-  STARTER_LINKS,
   WEB_TEMPLATES,
-  linkDisplayValue,
-  type StarterLinkDef,
   type WebTemplateId,
+  type ProfileBlock,
+  type BlockType,
+  getBlockDefinition,
 } from "@tapit/core";
 import type { Database } from "@tapit/types";
+import { BlockEditor } from "@/components/editor/block-editor";
+import { BlockRenderer } from "@/components/editor/block-renderer";
+import { BlockAddSheet } from "@/components/editor/block-add-sheet";
 import { Avatar, type AvatarFocusMode } from "@/components/ui/avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
@@ -32,7 +35,6 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
-type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
 
 type UsernameCheckStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 type PhotoTarget = "avatar" | "logo";
@@ -51,7 +53,7 @@ function TabButton({
     <Pressable
       onPress={onPress}
       className={cn(
-        "flex-1 items-center justify-center py-2.5 rounded-full transition-all",
+        "flex-1 items-center justify-center py-2.5 rounded-lg transition-all",
         active ? "bg-card shadow-xs" : "bg-transparent active:bg-accent/50",
       )}
     >
@@ -110,16 +112,15 @@ export default function EditProfileScreen() {
   const [usernameStatus, setUsernameStatus] = useState<UsernameCheckStatus>("idle");
   const [usernameReason, setUsernameReason] = useState<string | null>(null);
 
-  const [links, setLinks] = useState<ProfileLink[]>([]);
-  const [addLinkSheetOpen, setAddLinkSheetOpen] = useState(false);
-  const [newLinkDef, setNewLinkDef] = useState<StarterLinkDef | null>(null);
-  const [newLinkRawValue, setNewLinkRawValue] = useState("");
+  const [blocks, setBlocks] = useState<ProfileBlock[]>([]);
+  const [addBlockSheetOpen, setAddBlockSheetOpen] = useState(false);
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [editingBlockData, setEditingBlockData] = useState<ProfileBlock | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const checkSeq = useRef(0);
-  const customLinkSeq = useRef(0);
 
   useEffect(() => {
     if (!session) return;
@@ -175,26 +176,22 @@ export default function EditProfileScreen() {
       setOriginalUsername(profileData.username);
       setUsername(profileData.username);
 
-      const { data: linkData } = await supabase
-        .from("profile_links")
+      const { data: blockData } = await supabase
+        .from("profile_blocks")
         .select("*")
         .eq("profile_id", profileData.id)
         .order("position", { ascending: true });
 
-      setLinks(linkData ?? []);
+      setBlocks((blockData ?? []) as unknown as ProfileBlock[]);
       setLoading(false);
     })();
   }, [session]);
 
   useEffect(() => {
-    if (!username || username === originalUsername) {
-      setUsernameStatus("idle");
-      setUsernameReason(null);
-      return;
-    }
-    setUsernameStatus("checking");
+    if (!username || username === originalUsername) return;
     const seq = ++checkSeq.current;
     const timeout = setTimeout(async () => {
+      setUsernameStatus("checking");
       const { data, error } = await supabase.rpc("is_username_available", {
         check_username: username,
       });
@@ -367,42 +364,52 @@ export default function EditProfileScreen() {
     router.back();
   }
 
-  async function handleAddLinkConfirm() {
-    if (!profile || !newLinkDef || !newLinkRawValue.trim()) return;
-    const formatted = newLinkDef.formatValue(newLinkRawValue.trim());
+  async function handleAddBlock(type: BlockType) {
+    if (!profile) return;
+    const def = getBlockDefinition(type);
 
-    const { data: newLink, error } = await supabase
-      .from("profile_links")
+    const { data: newBlock, error } = await supabase
+      .from("profile_blocks")
       .insert({
         profile_id: profile.id,
-        kind: newLinkDef.kind,
-        platform: newLinkDef.platform ?? null,
-        label: newLinkDef.label,
-        value: formatted,
-        icon: newLinkDef.icon,
-        position: links.length,
+        block_type: type,
+        title: def.label,
+        data: {},
+        position: blocks.length,
         is_visible: true,
       })
       .select()
       .single();
 
-    if (!error && newLink) {
-      setLinks((prev) => [...prev, newLink]);
+    if (!error && newBlock) {
+      const castedBlock = newBlock as unknown as ProfileBlock;
+      setBlocks((prev) => [...prev, castedBlock]);
+      setEditingBlockData(castedBlock);
+      setEditingBlockId(castedBlock.id);
     }
 
-    setAddLinkSheetOpen(false);
-    setNewLinkDef(null);
-    setNewLinkRawValue("");
+    setAddBlockSheetOpen(false);
   }
 
-  async function handleToggleLink(linkId: string, currentVisible: boolean) {
-    setLinks((prev) => prev.map((l) => (l.id === linkId ? { ...l, is_visible: !currentVisible } : l)));
-    await supabase.from("profile_links").update({ is_visible: !currentVisible }).eq("id", linkId);
+  async function handleSaveBlock() {
+    if (!editingBlockData) return;
+    setBlocks((prev) => prev.map((b) => (b.id === editingBlockData.id ? editingBlockData : b)));
+    await supabase.from("profile_blocks").update({ 
+      title: editingBlockData.title,
+      data: editingBlockData.data as any
+    }).eq("id", editingBlockData.id);
+    setEditingBlockId(null);
+    setEditingBlockData(null);
   }
 
-  async function handleDeleteLink(linkId: string) {
-    setLinks((prev) => prev.filter((l) => l.id !== linkId));
-    await supabase.from("profile_links").delete().eq("id", linkId);
+  async function handleToggleBlock(blockId: string, currentVisible: boolean) {
+    setBlocks((prev) => prev.map((b) => (b.id === blockId ? { ...b, is_visible: !currentVisible } : b)));
+    await supabase.from("profile_blocks").update({ is_visible: !currentVisible }).eq("id", blockId);
+  }
+
+  async function handleDeleteBlock(blockId: string) {
+    setBlocks((prev) => prev.filter((b) => b.id !== blockId));
+    await supabase.from("profile_blocks").delete().eq("id", blockId);
   }
 
   if (loading) {
@@ -425,8 +432,6 @@ export default function EditProfileScreen() {
     );
   }
 
-  const currentColor = customHex.trim() ? (customHex.startsWith("#") ? customHex : `#${customHex}`) : selectedColor;
-
   return (
     <SafeAreaView className="flex-1 bg-background">
       {/* Header Navigation */}
@@ -443,18 +448,18 @@ export default function EditProfileScreen() {
             onPress={handleSave}
             loading={submitting}
             disabled={!firstName.trim() || (username !== originalUsername && usernameStatus !== "available")}
-            className="rounded-full px-4"
+            className="rounded-xl px-4"
           >
             Save
           </Button>
         </View>
 
         {/* 4-Segmented Control Bar */}
-        <View className="flex-row gap-1 rounded-full bg-accent/60 p-1 border border-border/50">
+        <View className="flex-row gap-1 rounded-xl bg-accent/60 p-1 border border-border/50">
           <TabButton label="Theme" active={tab === "display"} onPress={() => setTab("display")} />
           <TabButton label="Identity" active={tab === "identity"} onPress={() => setTab("identity")} />
           <TabButton label="Company" active={tab === "company"} onPress={() => setTab("company")} />
-          <TabButton label="Links" active={tab === "links"} onPress={() => setTab("links")} />
+          <TabButton label="Blocks" active={tab === "links"} onPress={() => setTab("links")} />
         </View>
       </View>
 
@@ -470,7 +475,7 @@ export default function EditProfileScreen() {
         {tab === "display" && (
           <View className="gap-5">
             {/* 1. Profile Picture Studio Hero Card */}
-            <View className="items-center gap-3 rounded-3xl border border-border/60 bg-card p-6 shadow-xs">
+            <View className="items-center gap-3 rounded-xl border border-border bg-card p-6 shadow-xs">
               <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Profile Avatar Studio
               </Text>
@@ -490,7 +495,7 @@ export default function EditProfileScreen() {
                   size="sm"
                   icon="camera-outline"
                   onPress={() => setPhotoSheetTarget("avatar")}
-                  className="flex-1 rounded-full border-border/70"
+                  className="flex-1 rounded-xl border-border/70"
                 >
                   Change Photo
                 </Button>
@@ -504,7 +509,7 @@ export default function EditProfileScreen() {
                       setEditorImageUri(newAvatarUri || avatarUrl);
                       setEditorVisible(true);
                     }}
-                    className="flex-1 rounded-full"
+                    className="flex-1 rounded-xl"
                   >
                     Adjust & Crop
                   </Button>
@@ -513,7 +518,7 @@ export default function EditProfileScreen() {
             </View>
 
             {/* 2. Web Profile Templates */}
-            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
+            <View className="gap-3 rounded-xl border border-border bg-card p-5 shadow-xs">
               <View className="flex-row items-center justify-between border-b border-border/40 pb-3">
                 <View className="flex-row items-center gap-2">
                   <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
@@ -534,7 +539,7 @@ export default function EditProfileScreen() {
                       key={tmpl.id}
                       onPress={() => setSelectedWebTemplate(tmpl.id)}
                       className={cn(
-                        "flex-row items-center justify-between rounded-2xl border p-4 transition-all",
+                        "flex-row items-center justify-between rounded-xl border p-4 transition-all",
                         isSelected
                           ? "border-primary bg-primary/10 shadow-xs"
                           : "border-border/60 bg-background active:bg-accent"
@@ -543,7 +548,7 @@ export default function EditProfileScreen() {
                       <View className="flex-1 gap-1 pr-3">
                         <View className="flex-row items-center gap-2">
                           <Text className="text-sm font-bold text-foreground">{tmpl.name}</Text>
-                          <View className="rounded-full bg-accent px-2 py-0.5 border border-border/60">
+                          <View className="rounded-md bg-accent px-2 py-0.5 border border-border/60">
                             <Text className="text-[10px] font-semibold text-muted-foreground">{tmpl.badge}</Text>
                           </View>
                         </View>
@@ -565,7 +570,7 @@ export default function EditProfileScreen() {
             </View>
 
             {/* 3. Accent Color Swatches */}
-            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
+            <View className="gap-3 rounded-xl border border-border bg-card p-5 shadow-xs">
               <View className="flex-row items-center gap-2 border-b border-border/40 pb-3">
                 <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
                 <Text className="text-base font-bold text-foreground">Brand Accent Color</Text>
@@ -582,7 +587,7 @@ export default function EditProfileScreen() {
                         setCustomHex("");
                       }}
                       className={cn(
-                        "flex-row items-center gap-2 rounded-full border px-3.5 py-2",
+                        "flex-row items-center gap-2 rounded-lg border px-3.5 py-2",
                         isSelected ? "border-primary bg-primary/10" : "border-border/60 bg-background"
                       )}
                     >
@@ -612,14 +617,14 @@ export default function EditProfileScreen() {
         {/* TAB 2: IDENTITY & BIO */}
         {tab === "identity" && (
           <View className="gap-4">
-            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
+            <View className="gap-3 rounded-xl border border-border bg-card p-5 shadow-xs">
               <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Web Handle & Name
               </Text>
 
               <View className="gap-1.5">
                 <Text className="text-xs font-semibold text-foreground">Public Handle</Text>
-                <View className="flex-row items-center rounded-2xl border border-border/80 px-4 py-3 bg-background">
+                <View className="flex-row items-center rounded-xl border border-border/80 px-4 py-3 bg-background">
                   <Text className="text-muted-foreground font-mono text-xs">tapit.man2web.in/u/</Text>
                   <Input
                     value={username}
@@ -636,12 +641,12 @@ export default function EditProfileScreen() {
               <View className="flex-row gap-3 pt-1">
                 <View className="flex-1 gap-1.5">
                   <Text className="text-xs font-semibold text-foreground">First Name *</Text>
-                  <Input placeholder="John" value={firstName} onChangeText={setFirstName} className="rounded-2xl" />
+                  <Input placeholder="John" value={firstName} onChangeText={setFirstName} className="rounded-xl" />
                 </View>
 
                 <View className="flex-1 gap-1.5">
                   <Text className="text-xs font-semibold text-foreground">Last Name</Text>
-                  <Input placeholder="Doe" value={lastName} onChangeText={setLastName} className="rounded-2xl" />
+                  <Input placeholder="Doe" value={lastName} onChangeText={setLastName} className="rounded-xl" />
                 </View>
               </View>
 
@@ -651,7 +656,7 @@ export default function EditProfileScreen() {
                   placeholder="e.g. MD, PhD, CPA"
                   value={accreditations}
                   onChangeText={setAccreditations}
-                  className="rounded-2xl"
+                  className="rounded-xl"
                 />
               </View>
 
@@ -661,7 +666,7 @@ export default function EditProfileScreen() {
                   placeholder="e.g. they/them, she/her"
                   value={pronouns}
                   onChangeText={setPronouns}
-                  className="rounded-2xl"
+                  className="rounded-xl"
                 />
               </View>
 
@@ -673,7 +678,7 @@ export default function EditProfileScreen() {
                   onChangeText={setBio}
                   multiline
                   numberOfLines={3}
-                  className="min-h-20 rounded-2xl"
+                  className="min-h-20 rounded-xl"
                 />
               </View>
             </View>
@@ -683,7 +688,7 @@ export default function EditProfileScreen() {
         {/* TAB 3: COMPANY & ORGANIZATION */}
         {tab === "company" && (
           <View className="gap-4">
-            <View className="gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-xs">
+            <View className="gap-3 rounded-xl border border-border bg-card p-5 shadow-xs">
               <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Workplace Information
               </Text>
@@ -694,7 +699,7 @@ export default function EditProfileScreen() {
                   placeholder="e.g. Senior Partner"
                   value={designation}
                   onChangeText={setDesignation}
-                  className="rounded-2xl"
+                  className="rounded-xl"
                 />
               </View>
 
@@ -704,7 +709,7 @@ export default function EditProfileScreen() {
                   placeholder="e.g. Enterprise Sales"
                   value={department}
                   onChangeText={setDepartment}
-                  className="rounded-2xl"
+                  className="rounded-xl"
                 />
               </View>
 
@@ -714,136 +719,62 @@ export default function EditProfileScreen() {
                   placeholder="e.g. Acme Corporation"
                   value={company}
                   onChangeText={setCompany}
-                  className="rounded-2xl"
+                  className="rounded-xl"
                 />
               </View>
             </View>
           </View>
         )}
 
-        {/* TAB 4: SOCIAL LINKS & CONTACT CHANNELS */}
+        {/* TAB 4: CONTENT & BLOCKS */}
         {tab === "links" && (
-          <View className="gap-4">
-            <View className="flex-row items-center justify-between px-1">
-              <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Active Channels ({links.length})
-              </Text>
-            </View>
-
-            {/* List of Active Links */}
-            <View className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-xs">
-              {links.length === 0 ? (
-                <View className="p-6 text-center items-center gap-2">
-                  <Ionicons name="link-outline" size={32} color={colors.muted} />
-                  <Text className="text-xs text-muted-foreground text-center">
-                    No active channels yet — tap below to add WhatsApp, Email, LinkedIn or Custom URL.
-                  </Text>
-                </View>
-              ) : (
-                links.map((link, idx) => (
-                  <ListRow
-                    key={link.id}
-                    showDivider={idx < links.length - 1}
-                    leading={
-                      <View className="h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                        <Ionicons
-                          name={(link.icon ?? "link-outline") as ComponentProps<typeof Ionicons>["name"]}
-                          size={18}
-                          color={colors.primary}
-                        />
-                      </View>
-                    }
-                    title={link.label}
-                    subtitle={linkDisplayValue(link.value)}
-                    trailing={
-                      <View className="flex-row items-center gap-3">
-                        <Pressable onPress={() => handleToggleLink(link.id, !!link.is_visible)}>
-                          <Ionicons
-                            name={link.is_visible ? "eye" : "eye-off-outline"}
-                            size={18}
-                            color={link.is_visible ? colors.primary : colors.muted}
-                          />
-                        </Pressable>
-                        <Pressable onPress={() => handleDeleteLink(link.id)}>
-                          <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                        </Pressable>
-                      </View>
-                    }
-                  />
-                ))
-              )}
-            </View>
-
-            {/* Quick Add Link Buttons Grid */}
-            <View className="gap-2.5 pt-2">
-              <Text className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Add New Channel
-              </Text>
-              <View className="flex-row flex-wrap gap-2.5">
-                {STARTER_LINKS.map((starterDef) => (
-                  <Pressable
-                    key={starterDef.key}
-                    onPress={() => {
-                      setNewLinkDef(starterDef);
-                      setNewLinkRawValue("");
-                      setAddLinkSheetOpen(true);
-                    }}
-                    className="flex-row items-center gap-2 rounded-2xl border border-border/60 bg-card px-3.5 py-3 shadow-xs active:bg-accent"
-                  >
-                    <Ionicons
-                      name={starterDef.icon as ComponentProps<typeof Ionicons>["name"]}
-                      size={18}
-                      color={colors.primary}
-                    />
-                    <Text className="text-xs font-bold text-foreground">{starterDef.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          </View>
+          <BlockEditor
+            blocks={blocks as ProfileBlock[]}
+            onAddBlock={() => setAddBlockSheetOpen(true)}
+            onToggleBlock={handleToggleBlock}
+            onDeleteBlock={handleDeleteBlock}
+            onEditBlock={(id) => {
+              const block = blocks.find((b) => b.id === id);
+              if (block) {
+                setEditingBlockData(block as ProfileBlock);
+                setEditingBlockId(block.id);
+              }
+            }}
+          />
         )}
       </ScrollView>
 
-      {/* Add Link Bottom Sheet Modal */}
-      <BottomSheet visible={addLinkSheetOpen} onClose={() => setAddLinkSheetOpen(false)}>
+      {/* Add Block Bottom Sheet Modal */}
+      <BlockAddSheet
+        visible={addBlockSheetOpen}
+        onClose={() => setAddBlockSheetOpen(false)}
+        onSelectBlock={handleAddBlock}
+      />
+
+      {/* Edit Block Bottom Sheet Modal */}
+      <BottomSheet visible={!!editingBlockId} onClose={() => setEditingBlockId(null)}>
         <View className="gap-4 pb-2">
-          {newLinkDef && (
+          {editingBlockData && (
             <>
               <View className="flex-row items-center gap-2.5 border-b border-border/40 pb-3">
-                <Ionicons
-                  name={newLinkDef.icon as ComponentProps<typeof Ionicons>["name"]}
-                  size={22}
-                  color={colors.primary}
-                />
                 <Text variant="h4" className="text-base font-bold text-foreground">
-                  Add {newLinkDef.label}
+                  Edit Block
                 </Text>
               </View>
 
-              <View className="gap-1.5">
-                <Text className="text-xs font-semibold text-foreground">Enter Handle / URL</Text>
-                <Input
-                  placeholder={newLinkDef.placeholder}
-                  value={newLinkRawValue}
-                  onChangeText={setNewLinkRawValue}
-                  autoFocus
-                  autoCapitalize="none"
-                  className="rounded-2xl"
-                />
-              </View>
+              <BlockRenderer block={editingBlockData} onChange={setEditingBlockData} />
 
               <View className="gap-2 pt-2">
                 <Button
-                  onPress={handleAddLinkConfirm}
-                  disabled={!newLinkRawValue.trim()}
-                  className="w-full rounded-full py-3.5"
+                  onPress={handleSaveBlock}
+                  className="w-full rounded-xl py-3.5"
                 >
-                  Add to Card
+                  Save Changes
                 </Button>
                 <Button
                   variant="secondary"
-                  onPress={() => setAddLinkSheetOpen(false)}
-                  className="w-full rounded-full"
+                  onPress={() => setEditingBlockId(null)}
+                  className="w-full rounded-xl"
                 >
                   Cancel
                 </Button>
@@ -863,7 +794,7 @@ export default function EditProfileScreen() {
             variant="outline"
             icon="camera-outline"
             onPress={() => photoSheetTarget && pickImage("camera", photoSheetTarget)}
-            className="rounded-full py-3.5 justify-start border-border/70"
+            className="rounded-xl py-3.5 justify-start border-border/70"
           >
             Take Photo with Camera
           </Button>
@@ -871,7 +802,7 @@ export default function EditProfileScreen() {
             variant="outline"
             icon="images-outline"
             onPress={() => photoSheetTarget && pickImage("library", photoSheetTarget)}
-            className="rounded-full py-3.5 justify-start border-border/70"
+            className="rounded-xl py-3.5 justify-start border-border/70"
           >
             Choose from Photo Library
           </Button>
@@ -885,7 +816,7 @@ export default function EditProfileScreen() {
                 setEditorImageUri(newAvatarUri || avatarUrl);
                 setEditorVisible(true);
               }}
-              className="rounded-full py-3.5 justify-start border-border/70"
+              className="rounded-xl py-3.5 justify-start border-border/70"
             >
               Edit & Adjust Photo
             </Button>
@@ -905,13 +836,13 @@ export default function EditProfileScreen() {
                 }
                 setPhotoSheetTarget(null);
               }}
-              className="rounded-full py-3.5 justify-start"
+              className="rounded-xl py-3.5 justify-start"
             >
               Remove Profile Photo
             </Button>
           )}
 
-          <Button variant="secondary" onPress={() => setPhotoSheetTarget(null)} className="rounded-full mt-1">
+          <Button variant="secondary" onPress={() => setPhotoSheetTarget(null)} className="rounded-xl mt-1">
             Cancel
           </Button>
         </View>

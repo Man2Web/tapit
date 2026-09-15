@@ -333,7 +333,7 @@ export default function LeadsScreen() {
           />
         }
       >
-        {/* Apple HIG Header */}
+        {/* Contacts Header */}
         <View className="flex-row items-center justify-between">
           <View>
             <Text variant="h3" className="text-2xl font-bold tracking-tight text-foreground">
@@ -350,7 +350,7 @@ export default function LeadsScreen() {
               variant="outline"
               icon="add-outline"
               onPress={() => setAddSheetOpen(true)}
-              className="rounded-full px-3.5 border-border/80"
+              className="rounded-xl px-3.5 border-border bg-card shadow-xs"
             >
               Add
             </Button>
@@ -358,7 +358,7 @@ export default function LeadsScreen() {
               size="sm"
               icon="scan-outline"
               onPress={() => router.push("/scan-card")}
-              className="rounded-full bg-primary px-3.5 shadow-sm"
+              className="rounded-xl bg-primary px-3.5 shadow-xs"
             >
               Scan Card
             </Button>
@@ -366,7 +366,7 @@ export default function LeadsScreen() {
         </View>
 
         {/* Search Bar */}
-        <View className="flex-row items-center rounded-2xl border border-border/60 bg-card px-3.5 py-2.5 shadow-sm">
+        <View className="flex-row items-center rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-xs">
           <Ionicons name="search-outline" size={18} color={colors.muted} />
           <TextInput
             placeholder="Search contacts or companies..."
@@ -382,18 +382,18 @@ export default function LeadsScreen() {
           ) : null}
         </View>
 
-        {/* Status Filter Chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
+        {/* Status Filter Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
           {STATUS_FILTERS.map((filter) => {
             const isActive = activeStatusFilter === filter;
             return (
               <Pressable
                 key={filter}
                 onPress={() => setActiveStatusFilter(filter)}
-                className={`rounded-full px-4 py-2 border transition-colors ${
+                className={`rounded-lg px-3.5 py-1.5 border transition-colors ${
                   isActive
-                    ? "bg-primary border-primary shadow-sm"
-                    : "bg-card border-border/60 active:bg-accent"
+                    ? "bg-primary border-primary shadow-xs"
+                    : "bg-card border-border active:bg-secondary"
                 }`}
               >
                 <Text
@@ -423,7 +423,7 @@ export default function LeadsScreen() {
                     setConfirmDelete(false);
                     setDetailSheetOpen(true);
                   }}
-                  className="gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm active:opacity-90"
+                  className="gap-3 rounded-xl border border-border bg-card p-3.5 shadow-xs active:bg-secondary/50"
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-3.5 flex-1">
@@ -503,8 +503,8 @@ export default function LeadsScreen() {
             })}
           </View>
         ) : (
-          <View className="items-center justify-center gap-3 rounded-3xl border border-dashed border-border/80 p-8 text-center mt-4 bg-card/40">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+          <View className="items-center justify-center gap-3 rounded-xl border border-dashed border-border p-8 text-center mt-4 bg-card/40">
+            <View className="h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
               <Ionicons name="people-outline" size={28} color={colors.primary} />
             </View>
             <Text variant="h4">No contacts found</Text>
@@ -514,7 +514,7 @@ export default function LeadsScreen() {
             <Button
               icon="scan-outline"
               onPress={() => router.push("/scan-card")}
-              className="mt-2 rounded-full px-5 shadow-sm"
+              className="mt-2 rounded-xl px-5 shadow-xs"
             >
               Scan Business Card
             </Button>
@@ -522,14 +522,14 @@ export default function LeadsScreen() {
         )}
       </ScrollView>
 
-      {/* Apple HIG Contact Detail Sheet */}
+      {/* Contact Detail Sheet */}
       <BottomSheet visible={detailSheetOpen} onClose={() => setDetailSheetOpen(false)}>
         {selectedLead ? (
           <View className="gap-4 pb-2">
             {!confirmDelete ? (
               <>
                 <View className="items-center gap-2 text-center pt-1">
-                  <View className="h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 shadow-sm">
+                  <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-xs">
                     <Text className="text-2xl font-bold text-primary">
                       {(selectedLead.name || selectedLead.email || "C").charAt(0).toUpperCase()}
                     </Text>
@@ -556,7 +556,7 @@ export default function LeadsScreen() {
                       variant="outline"
                       icon="call-outline"
                       onPress={() => Linking.openURL(`tel:${selectedLead.phone}`)}
-                      className="flex-1 rounded-full"
+                      className="flex-1 rounded-xl"
                     >
                       Call
                     </Button>
@@ -568,7 +568,7 @@ export default function LeadsScreen() {
                       variant="outline"
                       icon="mail-outline"
                       onPress={() => Linking.openURL(`mailto:${selectedLead.email}`)}
-                      className="flex-1 rounded-full"
+                      className="flex-1 rounded-xl"
                     >
                       Email
                     </Button>
@@ -582,7 +582,7 @@ export default function LeadsScreen() {
                       setDetailSheetOpen(false);
                       setFollowupSheetOpen(true);
                     }}
-                    className="flex-1 rounded-full"
+                    className="flex-1 rounded-xl"
                   >
                     Follow Up
                   </Button>
@@ -594,7 +594,7 @@ export default function LeadsScreen() {
                   icon="person-add-outline"
                   loading={savingToPhone}
                   onPress={handleSaveToDeviceContacts}
-                  className="rounded-full w-full py-3 border border-border/60"
+                  className="rounded-xl w-full py-3 border border-border/60"
                 >
                   Save to Mobile Address Book
                 </Button>
@@ -609,10 +609,10 @@ export default function LeadsScreen() {
                         <Pressable
                           key={st}
                           onPress={() => handleUpdateStatus(st)}
-                          className={`rounded-full px-4 py-1.5 border capitalize ${
+                          className={`rounded-lg px-3.5 py-1.5 border capitalize ${
                             isActive
-                              ? "bg-primary border-primary shadow-sm"
-                              : "bg-card border-border/70 active:bg-accent"
+                              ? "bg-primary border-primary shadow-xs"
+                              : "bg-card border-border active:bg-accent"
                           }`}
                         >
                           <Text
@@ -634,7 +634,7 @@ export default function LeadsScreen() {
                     variant="destructive"
                     icon="trash-outline"
                     onPress={() => setConfirmDelete(true)}
-                    className="rounded-full w-full py-3"
+                    className="rounded-xl w-full py-3"
                   >
                     Delete Contact
                   </Button>
@@ -644,7 +644,7 @@ export default function LeadsScreen() {
               /* Inline Confirm Delete View */
               <View className="gap-4 py-2">
                 <View className="items-center gap-2 text-center">
-                  <View className="h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+                  <View className="h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10">
                     <Ionicons name="trash-outline" size={28} color={colors.danger} />
                   </View>
                   <Text variant="h4" className="text-center text-lg font-bold text-foreground">
@@ -661,14 +661,14 @@ export default function LeadsScreen() {
                     icon="trash-outline"
                     loading={deleting}
                     onPress={() => executeDeleteContact(selectedLead.id)}
-                    className="rounded-full w-full py-3.5 shadow-sm"
+                    className="rounded-xl w-full py-3.5 shadow-xs"
                   >
                     Yes, Delete Contact
                   </Button>
                   <Button
                     variant="secondary"
                     onPress={() => setConfirmDelete(false)}
-                    className="rounded-full w-full"
+                    className="rounded-xl w-full"
                   >
                     Cancel
                   </Button>
@@ -689,7 +689,7 @@ export default function LeadsScreen() {
               value={addName}
               onChangeText={setAddName}
               placeholderTextColor={colors.muted}
-              className="rounded-2xl border border-border/70 bg-card px-3.5 py-3 text-sm text-foreground"
+              className="rounded-xl border border-border bg-card px-3.5 py-3 text-sm text-foreground"
             />
             <View className="flex-row gap-2.5">
               <TextInput
@@ -697,14 +697,14 @@ export default function LeadsScreen() {
                 value={addDesignation}
                 onChangeText={setAddDesignation}
                 placeholderTextColor={colors.muted}
-                className="flex-1 rounded-2xl border border-border/70 bg-card px-3.5 py-3 text-sm text-foreground"
+                className="flex-1 rounded-xl border border-border bg-card px-3.5 py-3 text-sm text-foreground"
               />
               <TextInput
                 placeholder="Company (e.g. Acme)"
                 value={addCompany}
                 onChangeText={setAddCompany}
                 placeholderTextColor={colors.muted}
-                className="flex-1 rounded-2xl border border-border/70 bg-card px-3.5 py-3 text-sm text-foreground"
+                className="flex-1 rounded-xl border border-border bg-card px-3.5 py-3 text-sm text-foreground"
               />
             </View>
             <TextInput
@@ -713,7 +713,7 @@ export default function LeadsScreen() {
               onChangeText={setAddPhone}
               keyboardType="phone-pad"
               placeholderTextColor={colors.muted}
-              className="rounded-2xl border border-border/70 bg-card px-3.5 py-3 text-sm text-foreground"
+              className="rounded-xl border border-border bg-card px-3.5 py-3 text-sm text-foreground"
             />
             <TextInput
               placeholder="Email Address"
@@ -721,14 +721,14 @@ export default function LeadsScreen() {
               onChangeText={setAddEmail}
               keyboardType="email-address"
               placeholderTextColor={colors.muted}
-              className="rounded-2xl border border-border/70 bg-card px-3.5 py-3 text-sm text-foreground"
+              className="rounded-xl border border-border bg-card px-3.5 py-3 text-sm text-foreground"
             />
             <TextInput
               placeholder="Note or Memo (optional)"
               value={addNotes}
               onChangeText={setAddNotes}
               placeholderTextColor={colors.muted}
-              className="rounded-2xl border border-border/70 bg-card px-3.5 py-3 text-sm text-foreground"
+              className="rounded-xl border border-border bg-card px-3.5 py-3 text-sm text-foreground"
             />
           </View>
 
@@ -736,7 +736,7 @@ export default function LeadsScreen() {
             icon="checkmark-outline"
             onPress={handleAddLeadSubmit}
             loading={addingLead}
-            className="mt-2 rounded-full py-3.5 shadow-sm"
+            className="mt-2 rounded-xl py-3.5 shadow-xs"
           >
             Save Contact
           </Button>
@@ -756,7 +756,7 @@ export default function LeadsScreen() {
               variant="outline"
               icon="mail-outline"
               onPress={() => handleFollowupAction("email")}
-              className="justify-start border-border/80 bg-card py-3 rounded-2xl"
+              className="justify-start border-border bg-card py-3 rounded-xl"
             >
               Send Follow-up Email
             </Button>
@@ -764,7 +764,7 @@ export default function LeadsScreen() {
               variant="outline"
               icon="logo-whatsapp"
               onPress={() => handleFollowupAction("whatsapp")}
-              className="justify-start border-border/80 bg-card py-3 rounded-2xl"
+              className="justify-start border-border bg-card py-3 rounded-xl"
             >
               Send WhatsApp Message
             </Button>
@@ -772,13 +772,13 @@ export default function LeadsScreen() {
               variant="outline"
               icon="chatbubble-outline"
               onPress={() => handleFollowupAction("sms")}
-              className="justify-start border-border/80 bg-card py-3 rounded-2xl"
+              className="justify-start border-border bg-card py-3 rounded-xl"
             >
               Send SMS Text
             </Button>
           </View>
 
-          <Button variant="secondary" onPress={() => setFollowupSheetOpen(false)} className="rounded-full">
+          <Button variant="secondary" onPress={() => setFollowupSheetOpen(false)} className="rounded-xl">
             Cancel
           </Button>
         </View>
